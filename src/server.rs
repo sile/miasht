@@ -4,7 +4,8 @@ use std::sync::Arc;
 use fibers::Spawn;
 use fibers::net::{TcpListener, TcpStream};
 use fibers::sync::oneshot::{Monitor, MonitorError};
-use futures::{Future, IntoFuture, Poll, Stream};
+use futures::{Future, IntoFuture, Poll, Stream, Async};
+use httparse;
 
 pub struct HttpServerHandle {
     monitor: Monitor<(), Error>,
@@ -78,14 +79,9 @@ impl<S> HttpServer<S>
             // TODO: support keep alive
             listener.incoming().for_each(move |(client, _)| {
                 let handler = handler.clone();
-                spawner.spawn(client.and_then(|socket| ReadHeader(socket).map_err(|(_, e)| e))
-                    .and_then(|(socket, header, buf)| {
-                        let req = Request {
-                            socket: socket.clone(),
-                            header: header,
-                            buf: buf,
-                        };
-                        let res = Response { socket: socket };
+                spawner.spawn(client.and_then(|socket| ReadHeader::new(socket).map_err(|(_, e)| e))
+                    .and_then(|req| {
+                        let res = Response { socket: req.stream.clone() };
                         handler.handle_request(req, res)
                     })
                     .then(|_r| {
@@ -99,20 +95,116 @@ impl<S> HttpServer<S>
     }
 }
 
-pub struct ReadHeader<R>(R);
-impl<R: Read> Future for ReadHeader<R> {
-    type Item = (R, Header, Vec<u8>);
-    type Error = (R, Error);
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        panic!()
+pub struct ReadHeaderInner<'a> {
+    reader: TcpStream,
+    buf: Vec<u8>,
+    offset: usize,
+    headers: Vec<httparse::Header<'a>>,
+}
+
+pub struct ReadHeader<'a>(Option<ReadHeaderInner<'a>>);
+
+impl<'a> ReadHeader<'a> {
+    fn new(reader: TcpStream) -> Self {
+        ReadHeader(Some(ReadHeaderInner {
+            reader: reader,
+            buf: vec![0; 1024],
+            offset: 0,
+            headers: vec![httparse::EMPTY_HEADER; 8],
+        }))
     }
 }
-pub struct Header;
+impl<'a> Future for ReadHeader<'a> {
+    type Item = Request<'a>;
+    type Error = (TcpStream, Error);
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let mut inner = self.0.take().expect("Cannot poll ReadHeader twice");
+        if inner.offset == inner.buf.len() {
+            let new_len = inner.offset * 2; // TODO: max size
+            inner.buf.resize(new_len, 0);
+        }
+        match inner.reader.read(&mut inner.buf[inner.offset..]) {
+            Err(e) => {
+                if e.kind() == ErrorKind::WouldBlock {
+                    self.0 = Some(inner);
+                    Ok(Async::NotReady)
+                } else {
+                    Err((inner.reader, e))
+                }
+            }
+            Ok(read_size) => {
+                inner.offset += read_size;
+                loop {
+                    let result = {
+                        let buf = &inner.buf[0..inner.offset];
+                        let buf = unsafe { &*(buf as *const _) as &'static _ };
+                        let mut req = httparse::Request::new(&mut inner.headers);
+                        match req.parse(buf) {
+                            Err(httparse::Error::TooManyHeaders) => Err(true),
+                            Err(e) => {
+                                let e = Error::new(ErrorKind::InvalidData,
+                                                   format!("HTTP parse failure: {}", e));
+                                return Err((inner.reader, e));
+                            }
+                            Ok(httparse::Status::Partial) => Err(false),
+                            Ok(httparse::Status::Complete(body_offset)) => {
+                                let x = (req.method.unwrap().to_string(),
+                                         req.path.unwrap().to_string(),
+                                         req.version.unwrap());
+                                Ok((body_offset, x, req.headers.len()))
+                            }
+                        }
+                    };
+                    match result {
+                        Ok((body_offset, x, header_count)) => {
+                            inner.headers.truncate(header_count);
+                            let req = Request {
+                                stream: inner.reader,
+                                method: x.0,
+                                path: x.1,
+                                version: x.2,
+                                headers: inner.headers,
+                                buf: inner.buf,
+                                body_offset: body_offset,
+                            };
+                            return Ok(Async::Ready(req));
+                        }
+                        Err(false) => {
+                            self.0 = Some(inner);
+                            return self.poll();
+                        }
+                        Err(true) => {
+                            // retry
+                            let new_len = inner.headers.len() * 2; // TODO: size limit
+                            inner.headers.resize(new_len, httparse::EMPTY_HEADER);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
-pub struct Request {
-    socket: TcpStream,
-    header: Header,
+#[derive(Debug)]
+pub struct Request<'a> {
+    stream: TcpStream,
+    method: String, // TODO: &'a str or enum
+    path: String, // TODO: &'a str
+    version: u8,
+    headers: Vec<httparse::Header<'a>>,
     buf: Vec<u8>,
+    body_offset: usize,
+}
+impl<'a> Request<'a> {
+    pub fn method(&self) -> &str {
+        &self.method
+    }
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+    pub fn version(&self) -> u8 {
+        self.version
+    }
 }
 pub struct Response {
     socket: TcpStream,
