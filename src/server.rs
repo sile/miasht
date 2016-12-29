@@ -1,4 +1,4 @@
-use std::io::{Error, ErrorKind, Read};
+use std::io::{Error, ErrorKind, Read, Result};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use fibers::Spawn;
@@ -8,6 +8,7 @@ use futures::{Future, IntoFuture, Poll, Stream, Async};
 use httparse;
 
 use Method;
+use Header;
 
 pub struct HttpServerHandle {
     monitor: Monitor<(), Error>,
@@ -151,7 +152,7 @@ impl<'a> Future for ReadHeader<'a> {
                             Ok(httparse::Status::Partial) => Err(false),
                             Ok(httparse::Status::Complete(body_offset)) => {
                                 let x = (Method::from_str(req.method.unwrap()),
-                                         req.path.unwrap().to_string(),
+                                         req.path.unwrap(),
                                          req.version.unwrap());
                                 Ok((body_offset, x, req.headers.len()))
                             }
@@ -190,8 +191,8 @@ impl<'a> Future for ReadHeader<'a> {
 #[derive(Debug)]
 pub struct Request<'a> {
     stream: TcpStream,
-    method: Method,
-    path: String, // TODO: &'a str
+    method: Method<'a>,
+    path: &'a str,
     version: u8,
     headers: Vec<httparse::Header<'a>>,
     buf: Vec<u8>,
@@ -210,7 +211,37 @@ impl<'a> Request<'a> {
     pub fn headers(&self) -> &[httparse::Header<'a>] {
         &self.headers
     }
+    pub fn header<H: Header<'a>>(&'a self) -> Result<Option<H>> {
+        H::parse(&self.headers)
+    }
 }
+impl<'a> Read for Request<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        // Read body (end-to-stream, content-length, chunked-stream)
+        unimplemented!()
+    }
+}
+
+// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// pub enum Connection {
+//     Close,
+//     // TODO: comma separated-list
+//     KeepAlive,
+// }
+// impl<'a> Header<'a> for Connection {
+//     fn parse(headers: &'a [httparse::Header]) -> Result<Option<Self>> {
+//         if let Some(h) = headers.iter().find(|h| h.name == "Connection") {
+//             match h.value {
+//                 b"Close" => Ok(Some(Connection::Close)),
+//                 b"Keep-Alive" => Ok(Some(Connection::KeepAlive)),
+//                 _ => unimplemented!(),
+//             }
+//         } else {
+//             Ok(None)
+//         }
+//     }
+// }
+
 pub struct Response {
     socket: TcpStream,
 }

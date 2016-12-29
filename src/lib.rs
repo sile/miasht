@@ -5,12 +5,13 @@ extern crate futures;
 extern crate httparse;
 
 use std::fmt;
+use std::io::Result;
 
 pub mod server;
 
 // See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Method {
+pub enum Method<'a> {
     Get,
     Head,
     Post,
@@ -20,10 +21,10 @@ pub enum Method {
     Options,
     Trace,
     Patch,
-    Other(String),
+    Other(&'a str),
 }
-impl Method {
-    pub fn from_str(method: &str) -> Self {
+impl<'a> Method<'a> {
+    pub fn from_str(method: &'a str) -> Self {
         match method {
             "GET" => Method::Get,
             "HEAD" => Method::Head,
@@ -34,7 +35,7 @@ impl Method {
             "OPTIONS" => Method::Options,
             "TRACE" => Method::Trace,
             "PATCH" => Method::Patch,
-            other => Method::Other(other.to_string()),
+            other => Method::Other(other),
         }
     }
     pub fn as_str(&self) -> &str {
@@ -52,10 +53,14 @@ impl Method {
         }
     }
 }
-impl fmt::Display for Method {
+impl<'a> fmt::Display for Method<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }
+}
+
+pub trait Header<'a>: Sized + fmt::Display {
+    fn parse(headers: &'a [httparse::Header]) -> Result<Option<Self>>;
 }
 
 #[cfg(test)]
