@@ -7,6 +7,8 @@ use fibers::sync::oneshot::{Monitor, MonitorError};
 use futures::{Future, IntoFuture, Poll, Stream, Async};
 use httparse;
 
+use Method;
+
 pub struct HttpServerHandle {
     monitor: Monitor<(), Error>,
 }
@@ -148,7 +150,7 @@ impl<'a> Future for ReadHeader<'a> {
                             }
                             Ok(httparse::Status::Partial) => Err(false),
                             Ok(httparse::Status::Complete(body_offset)) => {
-                                let x = (req.method.unwrap().to_string(),
+                                let x = (Method::from_str(req.method.unwrap()),
                                          req.path.unwrap().to_string(),
                                          req.version.unwrap());
                                 Ok((body_offset, x, req.headers.len()))
@@ -188,7 +190,7 @@ impl<'a> Future for ReadHeader<'a> {
 #[derive(Debug)]
 pub struct Request<'a> {
     stream: TcpStream,
-    method: String, // TODO: &'a str or enum
+    method: Method,
     path: String, // TODO: &'a str
     version: u8,
     headers: Vec<httparse::Header<'a>>,
@@ -196,7 +198,7 @@ pub struct Request<'a> {
     body_offset: usize,
 }
 impl<'a> Request<'a> {
-    pub fn method(&self) -> &str {
+    pub fn method(&self) -> &Method {
         &self.method
     }
     pub fn path(&self) -> &str {
@@ -204,6 +206,9 @@ impl<'a> Request<'a> {
     }
     pub fn version(&self) -> u8 {
         self.version
+    }
+    pub fn headers(&self) -> &[httparse::Header<'a>] {
+        &self.headers
     }
 }
 pub struct Response {

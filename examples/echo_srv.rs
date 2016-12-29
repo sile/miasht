@@ -11,7 +11,7 @@ fn main() {
     let addr = "0.0.0.0:3000".parse().unwrap();
     let server = HttpServer::new(addr, executor.handle());
     let _ = server.start_fn(|req, res| {
-        println!("Hello World!: {:?}", req);
+        println!("Hello World!: {} {:?}", req.method(), req.headers());
         Ok(res)
     });
     executor.run().unwrap();
