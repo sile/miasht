@@ -8,7 +8,7 @@ use futures::{Future, IntoFuture, Poll, Stream, Async};
 use httparse;
 
 use Method;
-use Header;
+use {Header, Headers};
 
 pub struct HttpServerHandle {
     monitor: Monitor<(), Error>,
@@ -208,11 +208,8 @@ impl<'a> Request<'a> {
     pub fn version(&self) -> u8 {
         self.version
     }
-    pub fn headers(&self) -> &[httparse::Header<'a>] {
-        &self.headers
-    }
-    pub fn header<H: Header<'a>>(&'a self) -> Result<Option<H>> {
-        H::parse(&self.headers)
+    pub fn headers(&self) -> Headers {
+        Headers { headers: &self.headers }
     }
 }
 impl<'a> Read for Request<'a> {
@@ -221,26 +218,6 @@ impl<'a> Read for Request<'a> {
         unimplemented!()
     }
 }
-
-// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// pub enum Connection {
-//     Close,
-//     // TODO: comma separated-list
-//     KeepAlive,
-// }
-// impl<'a> Header<'a> for Connection {
-//     fn parse(headers: &'a [httparse::Header]) -> Result<Option<Self>> {
-//         if let Some(h) = headers.iter().find(|h| h.name == "Connection") {
-//             match h.value {
-//                 b"Close" => Ok(Some(Connection::Close)),
-//                 b"Keep-Alive" => Ok(Some(Connection::KeepAlive)),
-//                 _ => unimplemented!(),
-//             }
-//         } else {
-//             Ok(None)
-//         }
-//     }
-// }
 
 pub struct Response {
     socket: TcpStream,

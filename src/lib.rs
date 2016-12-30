@@ -8,6 +8,7 @@ use std::fmt;
 use std::io::Result;
 
 pub mod server;
+pub mod headers;
 
 // See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -60,8 +61,23 @@ impl<'a> fmt::Display for Method<'a> {
 }
 
 pub trait Header<'a>: Sized + fmt::Display {
-    fn parse(headers: &'a [httparse::Header]) -> Result<Option<Self>>;
+    fn parse(headers: &'a Headers) -> Option<Result<Self>>;
 }
+
+#[derive(Debug, Clone)]
+pub struct Headers<'a> {
+    headers: &'a [httparse::Header<'a>],
+}
+impl<'a> Headers<'a> {
+    pub fn get_bytes(&self, name: &str) -> Option<&[u8]> {
+        use std::ascii::AsciiExt;
+        self.headers.iter().find(|h| h.name.eq_ignore_ascii_case(name)).map(|h| h.value)
+    }
+    pub fn get<H: Header<'a>>(&'a self) -> Option<Result<H>> {
+        H::parse(self)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
