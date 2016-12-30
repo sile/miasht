@@ -3,6 +3,7 @@ extern crate log;
 extern crate fibers;
 extern crate futures;
 extern crate httparse;
+extern crate handy_async;
 
 use std::fmt;
 use std::io::Result;
@@ -60,8 +61,9 @@ impl<'a> fmt::Display for Method<'a> {
     }
 }
 
-pub trait Header<'a>: Sized + fmt::Display {
-    fn parse(headers: &'a Headers) -> Option<Result<Self>>;
+pub trait Header {
+    fn parse(headers: &Headers) -> Result<Option<Self>> where Self: Sized;
+    fn write(&self, buf: &mut Vec<u8>);
 }
 
 #[derive(Debug, Clone)]
@@ -73,7 +75,7 @@ impl<'a> Headers<'a> {
         use std::ascii::AsciiExt;
         self.headers.iter().find(|h| h.name.eq_ignore_ascii_case(name)).map(|h| h.value)
     }
-    pub fn get<H: Header<'a>>(&'a self) -> Option<Result<H>> {
+    pub fn get<H: Header>(&self) -> Result<Option<H>> {
         H::parse(self)
     }
 }

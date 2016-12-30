@@ -8,6 +8,7 @@ log = "0.3"
 fibers = "0.1"
 futures = "0.1"
 httparse = "1.2"
+handy_async = "0.2"
 
 [dev-dependencies]
 clap = "2.19"

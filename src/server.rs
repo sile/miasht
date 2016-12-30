@@ -1,14 +1,17 @@
-use std::io::{Error, ErrorKind, Read, Result};
+use std::io::{Error, ErrorKind, Read, Write, Result};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use fibers::Spawn;
 use fibers::net::{TcpListener, TcpStream};
 use fibers::sync::oneshot::{Monitor, MonitorError};
-use futures::{Future, IntoFuture, Poll, Stream, Async};
+use futures::{self, Future, IntoFuture, Poll, Stream, Async};
+use futures::future::Either;
+use handy_async::io::AsyncWrite;
 use httparse;
 
 use Method;
 use {Header, Headers};
+use headers::ContentLength;
 
 pub struct HttpServerHandle {
     monitor: Monitor<(), Error>,
@@ -31,24 +34,24 @@ impl Future for HttpServerHandle {
 // impl stop,get_opts,set_opts,etc
 
 pub trait HandleRequest: Clone + Send + 'static {
-    type Future: Future<Item = Response, Error = Error> + Send;
-    fn handle_request(self, req: Request, res: Response) -> Self::Future;
-    fn handle_error(self, client: TcpStream, error: Error) {
+    type Future: Future<Item = ResponseBody, Error = ()> + Send;
+    fn handle_request(self, req: Request) -> Self::Future;
+    fn handle_error(self, server: SocketAddr, client: SocketAddr, error: Error) {
         error!("HTTP connection between {:?}(server) and {:?}(client) is disconnected: {}",
-               client.peer_addr(),
-               client.local_addr(),
+               client,
+               server,
                error);
 
     }
 }
 impl<F, G> HandleRequest for Arc<Box<F>>
-    where F: Fn(Request, Response) -> G + Sync + Send + 'static,
-          G: IntoFuture<Item = Response, Error = Error>,
+    where F: Fn(Request) -> G + Sync + Send + 'static,
+          G: IntoFuture<Item = ResponseBody, Error = ()>,
           G::Future: Send
 {
     type Future = G::Future;
-    fn handle_request(self, req: Request, res: Response) -> Self::Future {
-        self(req, res).into_future()
+    fn handle_request(self, req: Request) -> Self::Future {
+        self(req).into_future()
     }
 }
 
@@ -66,8 +69,8 @@ impl<S> HttpServer<S>
         }
     }
     pub fn start_fn<F, G>(self, f: F) -> HttpServerHandle
-        where F: Fn(Request, Response) -> G + Sync + Send + 'static,
-              G: IntoFuture<Item = Response, Error = Error>,
+        where F: Fn(Request) -> G + Sync + Send + 'static,
+              G: IntoFuture<Item = ResponseBody, Error = ()>,
               G::Future: Send
     {
         self.start(Arc::new(Box::new(f)))
@@ -78,18 +81,24 @@ impl<S> HttpServer<S>
     {
         let HttpServer { addr, spawner } = self;
         let monitor = spawner.clone().spawn_monitor(TcpListener::bind(addr).and_then(|listener| {
-            // TODO: Handle requests from HttpServerHandle
             // TODO: support keep alive
-            listener.incoming().for_each(move |(client, _)| {
+            let server_addr = listener.local_addr().unwrap();
+            listener.incoming().for_each(move |(client, client_addr)| {
                 let handler = handler.clone();
-                spawner.spawn(client.and_then(|socket| ReadHeader::new(socket).map_err(|(_, e)| e))
-                    .and_then(|req| {
-                        let res = Response { socket: req.stream.clone() };
-                        handler.handle_request(req, res)
-                    })
-                    .then(|_r| {
-                        // TODO: invoke handle_error if needed
-                        Ok(())
+                spawner.spawn(client.and_then(|socket| ReadHeader::new(socket))
+                    .then(move |result| {
+                        match result {
+                            Err(e) => {
+                                handler.handle_error(server_addr, client_addr, e);
+                                Either::A(futures::failed(()))
+                            }
+                            Ok(req) => {
+                                Either::B(handler.handle_request(req)
+                                    .and_then(|res| {
+                                        res.stream.async_flush().map(|_| ()).map_err(|_| ())
+                                    }))
+                            }
+                        }
                     }));
                 Ok(())
             })
@@ -119,7 +128,7 @@ impl<'a> ReadHeader<'a> {
 }
 impl<'a> Future for ReadHeader<'a> {
     type Item = Request<'a>;
-    type Error = (TcpStream, Error);
+    type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let mut inner = self.0.take().expect("Cannot poll ReadHeader twice");
         if inner.offset == inner.buf.len() {
@@ -132,7 +141,7 @@ impl<'a> Future for ReadHeader<'a> {
                     self.0 = Some(inner);
                     Ok(Async::NotReady)
                 } else {
-                    Err((inner.reader, e))
+                    Err(e)
                 }
             }
             Ok(read_size) => {
@@ -147,28 +156,33 @@ impl<'a> Future for ReadHeader<'a> {
                             Err(e) => {
                                 let e = Error::new(ErrorKind::InvalidData,
                                                    format!("HTTP parse failure: {}", e));
-                                return Err((inner.reader, e));
+                                return Err(e);
                             }
                             Ok(httparse::Status::Partial) => Err(false),
                             Ok(httparse::Status::Complete(body_offset)) => {
-                                let x = (Method::from_str(req.method.unwrap()),
-                                         req.path.unwrap(),
-                                         req.version.unwrap());
-                                Ok((body_offset, x, req.headers.len()))
+                                let result = (Method::from_str(req.method.unwrap()),
+                                              req.path.unwrap(),
+                                              req.version.unwrap(),
+                                              req.headers.len(),
+                                              body_offset);
+                                Ok(result)
                             }
                         }
                     };
                     match result {
-                        Ok((body_offset, x, header_count)) => {
+                        Ok((method, path, version, header_count, body_offset)) => {
                             inner.headers.truncate(header_count);
+                            let body =
+                                RequestBodyStream::new(inner.reader,
+                                                       inner.buf,
+                                                       body_offset,
+                                                       &Headers { headers: &inner.headers })?;
                             let req = Request {
-                                stream: inner.reader,
-                                method: x.0,
-                                path: x.1,
-                                version: x.2,
+                                method: method,
+                                path: path,
+                                version: version,
                                 headers: inner.headers,
-                                buf: inner.buf,
-                                body_offset: body_offset,
+                                body: body,
                             };
                             return Ok(Async::Ready(req));
                         }
@@ -189,14 +203,58 @@ impl<'a> Future for ReadHeader<'a> {
 }
 
 #[derive(Debug)]
+pub struct RequestBodyStream<R: Read, B: AsRef<[u8]>> {
+    stream: R,
+    buf: B,
+    offset: usize,
+    remainings: u64,
+}
+impl<R: Read, B: AsRef<[u8]>> RequestBodyStream<R, B> {
+    fn new(stream: R,
+           buf: B,
+           offset: usize,
+           headers: &Headers)
+           -> ::std::result::Result<Self, Error> {
+        if headers.get_bytes("Transfer-Encoding").is_some() {
+            unimplemented!()
+        }
+        let header = headers.get::<ContentLength>()?;
+        Ok(RequestBodyStream {
+            stream: stream,
+            buf: buf,
+            offset: offset,
+            remainings: header.map(|h| h.len()).unwrap_or(0),
+        })
+    }
+    fn unread_bytes(&self) -> Vec<u8> {
+        Vec::from(&self.buf.as_ref()[self.offset..])
+    }
+}
+impl<R: Read, B: AsRef<[u8]>> Read for RequestBodyStream<R, B> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        use std::cmp;
+        let max_size = cmp::min(buf.len() as u64, self.remainings) as usize;
+        if self.offset < self.buf.as_ref().len() {
+            let size = cmp::min(max_size, self.buf.as_ref().len() - self.offset);
+            buf[0..size].copy_from_slice(&self.buf.as_ref()[self.offset..self.offset + size]);
+            self.offset += size;
+            self.remainings -= size as u64;
+            Ok(size)
+        } else {
+            let size = self.stream.read(&mut buf[0..max_size])?;
+            self.remainings -= size as u64;
+            Ok(size)
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Request<'a> {
-    stream: TcpStream,
     method: Method<'a>,
     path: &'a str,
     version: u8,
     headers: Vec<httparse::Header<'a>>,
-    buf: Vec<u8>,
-    body_offset: usize,
+    body: RequestBodyStream<TcpStream, Vec<u8>>,
 }
 impl<'a> Request<'a> {
     pub fn method(&self) -> &Method {
@@ -211,14 +269,80 @@ impl<'a> Request<'a> {
     pub fn headers(&self) -> Headers {
         Headers { headers: &self.headers }
     }
+    pub fn response(self, status_code: u16, status_reason: &'static str) -> Response {
+        let unread = self.body.unread_bytes();
+        let mut buf = Vec::with_capacity(1024);
+        write!(buf,
+               "HTTP/1.{} {} {}\r\n",
+               self.version,
+               status_code,
+               status_reason)
+            .unwrap();
+        Response {
+            pre_body_buf: buf,
+            stream: self.body.stream,
+            unread: unread,
+        }
+    }
 }
 impl<'a> Read for Request<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        // Read body (end-to-stream, content-length, chunked-stream)
-        unimplemented!()
+        self.body.read(buf)
     }
 }
 
 pub struct Response {
-    socket: TcpStream,
+    pre_body_buf: Vec<u8>,
+    stream: TcpStream,
+    unread: Vec<u8>,
+}
+impl Response {
+    pub fn header<H: Header>(&mut self, header: &H) -> &mut Self {
+        header.write(&mut self.pre_body_buf);
+        self
+    }
+    pub fn into_body(mut self) -> ResponseBody {
+        write!(self.pre_body_buf, "\r\n").unwrap();
+        ResponseBody {
+            pre_body_buf: self.pre_body_buf,
+            pre_body_offset: 0,
+            stream: self.stream,
+            unread: self.unread,
+        }
+    }
+}
+
+pub struct ResponseBody {
+    pre_body_buf: Vec<u8>,
+    pre_body_offset: usize,
+    stream: TcpStream,
+    unread: Vec<u8>,
+}
+impl Write for ResponseBody {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        if self.pre_body_offset < self.pre_body_buf.len() {
+            let size = self.stream.write(&self.pre_body_buf[self.pre_body_offset..])?;
+            if size == 0 {
+                Err(Error::new(ErrorKind::UnexpectedEof, "TODO"))
+            } else {
+                self.pre_body_offset += size;
+                self.write(buf)
+            }
+        } else {
+            self.stream.write(buf)
+        }
+    }
+    fn flush(&mut self) -> Result<()> {
+        if self.pre_body_offset < self.pre_body_buf.len() {
+            let size = self.stream.write(&self.pre_body_buf[self.pre_body_offset..])?;
+            if size == 0 {
+                Err(Error::new(ErrorKind::UnexpectedEof, "TODO"))
+            } else {
+                self.pre_body_offset += size;
+                self.flush()
+            }
+        } else {
+            self.stream.flush()
+        }
+    }
 }

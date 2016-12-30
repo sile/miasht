@@ -1,5 +1,4 @@
-use std::io::{Error, ErrorKind, Result};
-use std::fmt;
+use std::io::{Error, ErrorKind, Result, Write};
 use std::str;
 use std::u64;
 use std::error;
@@ -8,15 +7,21 @@ use {Header, Headers};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ContentLength(u64);
-impl<'a> Header<'a> for ContentLength {
-    fn parse(headers: &'a Headers) -> Option<Result<Self>> {
-        headers.get_bytes("Content-Length")
-            .map(|bytes| decimal_bytes_to_u64(bytes).map(ContentLength))
+impl ContentLength {
+    pub fn len(&self) -> u64 {
+        self.0
     }
 }
-impl fmt::Display for ContentLength {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Content-Length: {}", self.0)
+impl Header for ContentLength {
+    fn parse(headers: &Headers) -> Result<Option<Self>> {
+        if let Some(bytes) = headers.get_bytes("Content-Length") {
+            decimal_bytes_to_u64(bytes).map(ContentLength).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+    fn write(&self, buf: &mut Vec<u8>) {
+        write!(buf, "Content-Length: {}", self.0).unwrap();
     }
 }
 
