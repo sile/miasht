@@ -269,7 +269,7 @@ impl<'a> Request<'a> {
     pub fn headers(&self) -> Headers {
         Headers { headers: &self.headers }
     }
-    pub fn response(self, status_code: u16, status_reason: &'static str) -> Response {
+    pub fn into_response(self, status_code: u16, status_reason: &'static str) -> Response {
         let unread = self.body.unread_bytes();
         let mut buf = Vec::with_capacity(1024);
         write!(buf,
@@ -297,12 +297,18 @@ pub struct Response {
     unread: Vec<u8>,
 }
 impl Response {
-    pub fn header<H: Header>(&mut self, header: &H) -> &mut Self {
+    pub fn add_header<H: Header>(&mut self, header: &H) -> &mut Self {
         header.write(&mut self.pre_body_buf);
+        self.pre_body_buf.extend_from_slice(b"\r\n");
         self
     }
+    pub fn add_raw_header(&mut self, key: &str, value: &[u8]) {
+        self.pre_body_buf.extend_from_slice(key.as_bytes());
+        self.pre_body_buf.extend_from_slice(value);
+        self.pre_body_buf.extend_from_slice(b"\r\n");
+    }
     pub fn into_body(mut self) -> ResponseBody {
-        write!(self.pre_body_buf, "\r\n").unwrap();
+        self.pre_body_buf.extend_from_slice(b"\r\n");
         ResponseBody {
             pre_body_buf: self.pre_body_buf,
             pre_body_offset: 0,

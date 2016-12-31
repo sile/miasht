@@ -6,7 +6,7 @@ use std::error;
 use {Header, Headers};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ContentLength(u64);
+pub struct ContentLength(pub u64);
 impl ContentLength {
     pub fn len(&self) -> u64 {
         self.0
