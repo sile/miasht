@@ -144,6 +144,7 @@ impl<'a> Future for ReadHeader<'a> {
                     Err(e)
                 }
             }
+            Ok(0) => Err(Error::new(ErrorKind::UnexpectedEof, "TODO")),
             Ok(read_size) => {
                 inner.offset += read_size;
                 loop {
