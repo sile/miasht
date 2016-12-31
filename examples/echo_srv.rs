@@ -1,14 +1,10 @@
 extern crate clap;
 extern crate env_logger;
 extern crate fibers;
-extern crate futures;
-extern crate handy_async;
 extern crate miasht;
 
 use std::io::Read;
 use fibers::{Executor, ThreadPoolExecutor};
-use handy_async::io::AsyncWrite;
-use futures::Future;
 use miasht::server::HttpServer;
 use miasht::headers::ContentLength;
 
@@ -22,8 +18,7 @@ fn main() {
 
         let mut res = req.into_response(200, "OK");
         res.add_header(&ContentLength(req_body.len() as u64));
-        let res_body = res.into_body();
-        res_body.async_write_all(req_body).map(|(b, _)| b).map_err(|_| ())
+        res.write_body_bytes(req_body)
     });
     executor.run().unwrap();
 }

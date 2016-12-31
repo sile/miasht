@@ -70,7 +70,7 @@ impl<S> HttpServer<S>
     }
     pub fn start_fn<F, G>(self, f: F) -> HttpServerHandle
         where F: Fn(Request) -> G + Sync + Send + 'static,
-              G: IntoFuture<Item = ResponseBody, Error = ()>,
+              G: IntoFuture<Item = ResponseBody, Error = ()>, // TODO: Error = Error
               G::Future: Send
     {
         self.start(Arc::new(Box::new(f)))
@@ -307,6 +307,7 @@ impl Response {
         self.pre_body_buf.extend_from_slice(value);
         self.pre_body_buf.extend_from_slice(b"\r\n");
     }
+    // TODO: into_body_stream
     pub fn into_body(mut self) -> ResponseBody {
         self.pre_body_buf.extend_from_slice(b"\r\n");
         ResponseBody {
@@ -315,6 +316,20 @@ impl Response {
             stream: self.stream,
             unread: self.unread,
         }
+    }
+    pub fn write_body_bytes<B: AsRef<[u8]>>(self, body: B) -> WriteBodyBytes<B> {
+        use handy_async::io::AsyncWrite;
+        WriteBodyBytes(self.into_body().async_write_all(body))
+    }
+}
+
+use handy_async::io::futures::WriteAll;
+pub struct WriteBodyBytes<B>(WriteAll<ResponseBody, B>);
+impl<B: AsRef<[u8]>> Future for WriteBodyBytes<B> {
+    type Item = ResponseBody;
+    type Error = ();
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        Ok(self.0.poll().map_err(|_| ())?.map(|(s, _)| s))
     }
 }
 
