@@ -9,6 +9,7 @@ use std::fmt;
 use std::io::Result;
 
 pub mod server;
+pub mod client;
 pub mod headers;
 
 // See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods
@@ -58,6 +59,20 @@ impl<'a> Method<'a> {
 impl<'a> fmt::Display for Method<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.as_str())
+    }
+}
+
+#[allow(non_camel_case_types)]
+pub enum Version {
+    Http1_0,
+    Http1_1,
+}
+impl fmt::Display for Version {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Version::Http1_0 => write!(f, "HTTP/1.0"),
+            Version::Http1_1 => write!(f, "HTTP/1.1"),
+        }
     }
 }
 
