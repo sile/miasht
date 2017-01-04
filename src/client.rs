@@ -1,7 +1,9 @@
-use std::io::{Write, Error, Result};
+use std::io::{Write, Error, Result, ErrorKind, Read};
 use std::net::SocketAddr;
-use futures::{Future, BoxFuture};
+use futures::{Future, BoxFuture, Poll};
 use fibers::net::TcpStream;
+use handy_async::io::AsyncWrite;
+use handy_async::io::futures::Flush;
 
 use {Method, Version, Header};
 
@@ -38,31 +40,72 @@ impl Request {
     pub fn into_body(mut self) -> RequestBody {
         self.buf.extend_from_slice(b"\r\n");
         RequestBody {
-            socket: self.socket,
+            stream: self.socket,
             pre_body_buf: self.buf,
             pre_body_offset: 0,
         }
     }
+    pub fn finish(self) -> WaitResponse {
+        self.into_body().finish()
+    }
 }
 
+// TODO: 共通化
 pub struct RequestBody {
-    socket: TcpStream,
+    stream: TcpStream,
     pre_body_buf: Vec<u8>,
     pre_body_offset: usize,
 }
 impl RequestBody {
-    pub fn finish(self) -> Response {
-        panic!()
+    pub fn finish(self) -> WaitResponse {
+        WaitResponse(self.async_flush())
     }
 }
 impl Write for RequestBody {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        panic!()
+        if self.pre_body_offset < self.pre_body_buf.len() {
+            let size = self.stream.write(&self.pre_body_buf[self.pre_body_offset..])?;
+            if size == 0 {
+                Err(Error::new(ErrorKind::UnexpectedEof, "TODO"))
+            } else {
+                self.pre_body_offset += size;
+                self.write(buf)
+            }
+        } else {
+            self.stream.write(buf)
+        }
     }
     fn flush(&mut self) -> Result<()> {
-        panic!()
+        if self.pre_body_offset < self.pre_body_buf.len() {
+            let size = self.stream.write(&self.pre_body_buf[self.pre_body_offset..])?;
+            if size == 0 {
+                Err(Error::new(ErrorKind::UnexpectedEof, "TODO"))
+            } else {
+                self.pre_body_offset += size;
+                self.flush()
+            }
+        } else {
+            self.stream.flush()
+        }
     }
 }
 
+pub struct WaitResponse(Flush<RequestBody>);
+impl Future for WaitResponse {
+    type Item = Response;
+    type Error = Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        // TODO: read response header
+        Ok(self.0.poll().map_err(|e| e.into_error())?.map(|r| Response { stream: r.stream }))
+    }
+}
+
+#[derive(Debug)]
 pub struct Response {
+    stream: TcpStream,
+}
+impl Read for Response {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        self.stream.read(buf)
+    }
 }
