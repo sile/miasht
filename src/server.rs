@@ -1,3 +1,4 @@
+use std::fmt;
 use std::io::{Error, ErrorKind, Read, Write, Result};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -5,6 +6,7 @@ use fibers::Spawn;
 use fibers::net::{TcpListener, TcpStream};
 use fibers::sync::oneshot::{Monitor, MonitorError};
 use futures::{self, Future, IntoFuture, Poll, Stream, Async};
+use futures::BoxFuture;
 use futures::future::Either;
 use handy_async::io::AsyncWrite;
 use httparse;
@@ -14,7 +16,7 @@ use {Header, Headers};
 use headers::ContentLength;
 
 pub struct HttpServerHandle {
-    monitor: Monitor<(), Error>,
+    pub monitor: Monitor<(), Error>,
 }
 impl Future for HttpServerHandle {
     type Item = ();
@@ -35,7 +37,7 @@ impl Future for HttpServerHandle {
 
 pub trait HandleRequest: Clone + Send + 'static {
     type Future: Future<Item = ResponseBody, Error = ()> + Send;
-    fn handle_request(self, req: Request) -> Self::Future;
+    fn handle_request(self, req: Request<'static>) -> Self::Future;
     fn handle_error(self, server: SocketAddr, client: SocketAddr, error: Error) {
         error!("HTTP connection between {:?}(server) and {:?}(client) is disconnected: {}",
                client,
@@ -45,12 +47,12 @@ pub trait HandleRequest: Clone + Send + 'static {
     }
 }
 impl<F, G> HandleRequest for Arc<Box<F>>
-    where F: Fn(Request) -> G + Sync + Send + 'static,
+    where F: Fn(Request<'static>) -> G + Sync + Send + 'static,
           G: IntoFuture<Item = ResponseBody, Error = ()>,
           G::Future: Send
 {
     type Future = G::Future;
-    fn handle_request(self, req: Request) -> Self::Future {
+    fn handle_request(self, req: Request<'static>) -> Self::Future {
         self(req).into_future()
     }
 }
@@ -249,13 +251,59 @@ impl<R: Read, B: AsRef<[u8]>> Read for RequestBodyStream<R, B> {
     }
 }
 
-#[derive(Debug)]
+pub type ReadBodyBytes<'a> = BoxFuture<(Request<'a>, Vec<u8>), (Request<'a>, Error)>;
+// pub struct ReadBodyBytes<'a>(Request<'a>);
+// impl<'a> Future for ReadBodyBytes<'a> {
+//     type Item = (Request<'a>, Vec<u8>);
+//     type Error = (Request<'a>, Error);
+//     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+//         panic!()
+//     }
+// }
+
 pub struct Request<'a> {
     method: Method<'a>,
     path: &'a str,
     version: u8,
     headers: Vec<httparse::Header<'a>>,
     body: RequestBodyStream<TcpStream, Vec<u8>>,
+}
+impl<'a> fmt::Debug for Request<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "Request {{ method: {:?}, path: {:?}, version: {:?}, headers: {{",
+               self.method,
+               self.path,
+               self.version)?;
+        let mut is_first = true;
+        for h in self.headers.iter() {
+            use std::str;
+            if !is_first {
+                write!(f, ", ")?;
+            }
+            is_first = false;
+            if let Ok(value) = str::from_utf8(h.value) {
+                write!(f, "{:?} => {:?}", h.name, value)?;
+            } else {
+                write!(f, "{:?} => {:?}", h.name, h.value)?;
+            }
+        }
+        write!(f, "}}, body: _ }}")
+    }
+}
+impl Request<'static> {
+    pub fn read_body_bytes(self) -> ReadBodyBytes<'static> {
+        use handy_async::io::ReadFrom;
+        use handy_async::pattern::read::All;
+        // TODO: Handle chunked-stream
+        // TODO: Limit max size
+        if let Some(length) = self.headers().get::<ContentLength>().unwrap() {
+            let buf = vec![0; length.0 as usize];
+            buf.read_from(self).map_err(|e| e.unwrap()).boxed()
+        } else {
+            All.read_from(self).map_err(|e| e.unwrap()).boxed()
+        }
+    }
 }
 impl<'a> Request<'a> {
     pub fn method(&self) -> &Method {
@@ -305,6 +353,7 @@ impl Response {
     }
     pub fn add_raw_header(&mut self, key: &str, value: &[u8]) {
         self.pre_body_buf.extend_from_slice(key.as_bytes());
+        self.pre_body_buf.extend_from_slice(": ".as_bytes());
         self.pre_body_buf.extend_from_slice(value);
         self.pre_body_buf.extend_from_slice(b"\r\n");
     }
@@ -334,6 +383,7 @@ impl<B: AsRef<[u8]>> Future for WriteBodyBytes<B> {
     }
 }
 
+#[allow(dead_code)]
 pub struct ResponseBody {
     pre_body_buf: Vec<u8>,
     pre_body_offset: usize,
