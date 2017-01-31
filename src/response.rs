@@ -18,3 +18,6 @@ impl<S> Response<S> {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct ResponseBody;

@@ -6,5 +6,6 @@ pub enum Error {
     UnknownVersion(u8),
     ParseFailure(httparse::Error),
     TooLargeRequestHeaderPart,
+    ServerDown,
     Io(io::Error),
 }
