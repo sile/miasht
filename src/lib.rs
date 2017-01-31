@@ -6,11 +6,21 @@ extern crate httparse;
 extern crate handy_async;
 
 use std::fmt;
-use std::io::Result;
+use std::io;
 
 pub mod server;
 pub mod client;
 pub mod headers;
+
+pub mod route;
+pub mod method;
+pub mod request;
+pub mod response;
+pub mod error;
+pub mod connection;
+pub mod status;
+
+pub type Result<T> = ::std::result::Result<T, error::Error>;
 
 // See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -62,10 +72,20 @@ impl<'a> fmt::Display for Method<'a> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[allow(non_camel_case_types)]
 pub enum Version {
     Http1_0,
     Http1_1,
+}
+impl Version {
+    pub fn from_u8(value: u8) -> Result<Self> {
+        match value {
+            0 => Ok(Version::Http1_0),
+            1 => Ok(Version::Http1_1),
+            _ => Err(error::Error::UnknownVersion(value)),
+        }
+    }
 }
 impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -77,7 +97,7 @@ impl fmt::Display for Version {
 }
 
 pub trait Header {
-    fn parse(headers: &Headers) -> Result<Option<Self>> where Self: Sized;
+    fn parse(headers: &Headers) -> io::Result<Option<Self>> where Self: Sized;
     fn write(&self, buf: &mut Vec<u8>);
 }
 
@@ -90,7 +110,7 @@ impl<'a> Headers<'a> {
         use std::ascii::AsciiExt;
         self.headers.iter().find(|h| h.name.eq_ignore_ascii_case(name)).map(|h| h.value)
     }
-    pub fn get<H: Header>(&self) -> Result<Option<H>> {
+    pub fn get<H: Header>(&self) -> io::Result<Option<H>> {
         H::parse(self)
     }
 }

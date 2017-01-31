@@ -11,5 +11,5 @@ httparse = "1.2"
 handy_async = "0.2"
 
 [dev-dependencies]
-clap = "2.19"
+clap = "2"
 env_logger = "0.3"
