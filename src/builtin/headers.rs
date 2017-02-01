@@ -1,11 +1,22 @@
 use std::fmt;
-use std::str;
 use std::u64;
 
 use Header;
 use error::HeaderParseError;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// `Content-Length` header.
+///
+/// # Examples
+///
+/// ```
+/// use miasht::Header;
+/// use miasht::builtin::headers::ContentLength;
+///
+/// assert_eq!(ContentLength(10).to_string(), "Content-Length: 10");
+/// assert_eq!(ContentLength::parse_value_str("10").ok(), Some(ContentLength(10)));
+/// assert_eq!(ContentLength::parse_value_str("-10").ok(), None);
+/// ```
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct ContentLength(pub u64);
 impl ContentLength {
     pub fn len(&self) -> u64 {
@@ -16,18 +27,12 @@ impl Header for ContentLength {
     fn name() -> &'static str {
         "Content-Length"
     }
-    fn parse(value: &[u8]) -> Result<Self, HeaderParseError> {
-        decimal_bytes_to_u64(value).map(ContentLength)
+    fn parse_value_str(value: &str) -> Result<Self, HeaderParseError> {
+        Ok(ContentLength(u64::from_str_radix(value, 10)?))
     }
 }
 impl fmt::Display for ContentLength {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Content-Length: {}", self.0)
     }
-}
-
-fn decimal_bytes_to_u64(bytes: &[u8]) -> Result<u64, HeaderParseError> {
-    let value = str::from_utf8(bytes)?;
-    let value = u64::from_str_radix(value, 10)?;
-    Ok(value)
 }

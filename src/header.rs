@@ -1,4 +1,5 @@
 use std::fmt;
+use std::str;
 use std::error;
 use std::slice;
 use std::ascii::AsciiExt;
@@ -14,7 +15,7 @@ impl<'a> Headers<'a> {
     }
     pub fn parse<H: Header>(&self) -> Result<Option<H>, HeaderParseError> {
         if let Some(v) = self.get(H::name()) {
-            H::parse(v).map(Some)
+            H::parse_value_bytes(v).map(Some)
         } else {
             Ok(None)
         }
@@ -38,5 +39,8 @@ impl<'a> Iterator for Iter<'a> {
 
 pub trait Header: Sized + fmt::Display {
     fn name() -> &'static str;
-    fn parse(value: &[u8]) -> Result<Self, HeaderParseError>;
+    fn parse_value_bytes(value: &[u8]) -> Result<Self, HeaderParseError> {
+        Self::parse_value_str(str::from_utf8(value)?)
+    }
+    fn parse_value_str(value: &str) -> Result<Self, HeaderParseError>;
 }
