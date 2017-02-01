@@ -13,7 +13,7 @@ use httparse;
 
 use Method;
 use {Header, Headers};
-use headers::ContentLength;
+use builtin::headers::ContentLength;
 
 pub struct HttpServerHandle {
     pub monitor: Monitor<(), Error>,
@@ -219,10 +219,10 @@ impl<R: Read, B: AsRef<[u8]>> RequestBodyStream<R, B> {
            offset: usize,
            headers: &Headers)
            -> ::std::result::Result<Self, Error> {
-        if headers.get_bytes("Transfer-Encoding").is_some() {
+        if headers.get("Transfer-Encoding").is_some() {
             unimplemented!()
         }
-        let header = headers.get::<ContentLength>()?;
+        let header = headers.parse::<ContentLength>()?;
         Ok(RequestBodyStream {
             stream: stream,
             buf: buf,

@@ -90,6 +90,11 @@ impl<'a> fmt::Display for RawStatus<'a> {
         write!(f, "{} {}", self.code, self.reason)
     }
 }
+impl From<Status> for RawStatus<'static> {
+    fn from(f: Status) -> Self {
+        f.as_raw()
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum Status {
@@ -166,7 +171,7 @@ impl fmt::Display for Status {
     }
 }
 impl Status {
-    pub fn as_raw(&self) -> RawStatus {
+    pub fn as_raw(&self) -> RawStatus<'static> {
         RawStatus::new(self.code(), self.reason_phrase())
     }
     pub fn code(&self) -> u16 {
@@ -234,7 +239,7 @@ impl Status {
             Status::NotExtended => 510,
         }
     }
-    pub fn reason_phrase(&self) -> &str {
+    pub fn reason_phrase(&self) -> &'static str {
         match *self {
             Status::Continue => "Continue",
             Status::SwitchingProtocols => "Switching Protocols",

@@ -83,7 +83,7 @@ impl<T: TransportStream> Future for ReadResponseInner<T> {
                 Ok(Async::Ready(Response {
                     version: version,
                     status: status,
-                    headers: res.headers,
+                    headers: Headers::new(res.headers),
                     connection: connection,
                 }))
             }
@@ -95,7 +95,7 @@ impl<T: TransportStream> Future for ReadResponseInner<T> {
 pub struct Response<T> {
     version: Version,
     status: RawStatus<'static>,
-    headers: &'static [httparse::Header<'static>],
+    headers: Headers<'static>,
     connection: Connection<T>,
 }
 impl<T: TransportStream> Response<T> {
@@ -105,8 +105,8 @@ impl<T: TransportStream> Response<T> {
     pub fn status(&self) -> &RawStatus {
         &self.status
     }
-    pub fn headers(&self) -> Headers {
-        Headers { headers: self.headers }
+    pub fn headers(&self) -> &Headers {
+        &self.headers
     }
     pub fn into_body(self) -> ResponseBodyReader<T> {
         ResponseBodyReader(self.connection)
