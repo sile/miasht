@@ -15,7 +15,6 @@ pub mod client2;
 pub mod headers;
 
 pub mod route;
-pub mod method;
 pub mod request;
 pub mod response;
 pub mod error;
@@ -34,56 +33,6 @@ mod version;
 mod method;
 
 pub type Result<T> = ::std::result::Result<T, error::Error>;
-
-// See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Method<'a> {
-    Get,
-    Head,
-    Post,
-    Put,
-    Delete,
-    Connect,
-    Options,
-    Trace,
-    Patch,
-    Other(&'a str),
-}
-impl<'a> Method<'a> {
-    pub fn from_str(method: &'a str) -> Self {
-        match method {
-            "GET" => Method::Get,
-            "HEAD" => Method::Head,
-            "POST" => Method::Post,
-            "PUT" => Method::Put,
-            "DELETE" => Method::Delete,
-            "CONNECT" => Method::Connect,
-            "OPTIONS" => Method::Options,
-            "TRACE" => Method::Trace,
-            "PATCH" => Method::Patch,
-            other => Method::Other(other),
-        }
-    }
-    pub fn as_str(&self) -> &str {
-        match *self {
-            Method::Get => "GET",
-            Method::Head => "HEAD",
-            Method::Post => "POST",
-            Method::Put => "PUT",
-            Method::Delete => "DELETE",
-            Method::Connect => "CONNECT",
-            Method::Options => "OPTIONS",
-            Method::Trace => "TRACE",
-            Method::Patch => "PATCH",
-            Method::Other(ref s) => s,
-        }
-    }
-}
-impl<'a> fmt::Display for Method<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
 
 pub trait Header: fmt::Display {
     fn parse(headers: &Headers) -> io::Result<Option<Self>> where Self: Sized;

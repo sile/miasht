@@ -117,21 +117,22 @@ impl<S> ReadRequest<S>
                     Ok(None)
                 }
             }
-            Ok(httparse::Status::Complete(body_offset)) => {
-                connection.buffer.head = body_offset;
-                let method = Method::from_str(req.method.unwrap())?;
-                let version = match req.version.unwrap() {
-                    0 => Version::Http1_0,
-                    1 => Version::Http1_1,
-                    v => Err(Error::UnknownVersion(v))?,
-                };
-                Ok(Some(Request {
-                    connection: connection,
-                    method: method,
-                    version: version,
-                    path: req.path.unwrap(),
-                    headers: req.headers,
-                }))
+            Ok(httparse::Status::Complete(_body_offset)) => {
+                panic!()
+                // connection.buffer.head = body_offset;
+                // let method = panic!(); //Method::from_str(req.method.unwrap())?;
+                // let version = match req.version.unwrap() {
+                //     0 => Version::Http1_0,
+                //     1 => Version::Http1_1,
+                //     v => Err(Error::UnknownVersion(v))?,
+                // };
+                // Ok(Some(Request {
+                //     connection: connection,
+                //     method: method,
+                //     version: version,
+                //     path: req.path.unwrap(),
+                //     headers: req.headers,
+                // }))
             }
         }
     }

@@ -22,14 +22,12 @@ impl Future for HttpServerHandle {
     type Item = ();
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.monitor.poll().map_err(|e| {
-            match e {
-                MonitorError::Aborted => {
-                    Error::new(ErrorKind::ConnectionAborted,
-                               "The HTTP server exited unexpectedly")
-                }
-                MonitorError::Failed(e) => e,
+        self.monitor.poll().map_err(|e| match e {
+            MonitorError::Aborted => {
+                Error::new(ErrorKind::ConnectionAborted,
+                           "The HTTP server exited unexpectedly")
             }
+            MonitorError::Failed(e) => e,
         })
     }
 }
@@ -88,19 +86,17 @@ impl<S> HttpServer<S>
             listener.incoming().for_each(move |(client, client_addr)| {
                 let handler = handler.clone();
                 spawner.spawn(client.and_then(|socket| ReadHeader::new(socket))
-                    .then(move |result| {
-                        match result {
-                            Err(e) => {
-                                handler.handle_error(server_addr, client_addr, e);
-                                Either::A(futures::failed(()))
-                            }
-                            Ok(req) => {
+                    .then(move |result| match result {
+                        Err(e) => {
+                            handler.handle_error(server_addr, client_addr, e);
+                            Either::A(futures::failed(()))
+                        }
+                        Ok(req) => {
                                 Either::B(handler.handle_request(req)
                                     .and_then(|res| {
                                         res.stream.async_flush().map(|_| ()).map_err(|_| ())
                                     }))
                             }
-                        }
                     }));
                 Ok(())
             })
@@ -162,13 +158,18 @@ impl<'a> Future for ReadHeader<'a> {
                                 return Err(e);
                             }
                             Ok(httparse::Status::Partial) => Err(false),
-                            Ok(httparse::Status::Complete(body_offset)) => {
-                                let result = (Method::from_str(req.method.unwrap()),
-                                              req.path.unwrap(),
-                                              req.version.unwrap(),
-                                              req.headers.len(),
-                                              body_offset);
-                                Ok(result)
+                            Ok(httparse::Status::Complete(_body_offset)) => {
+                                panic!();
+                                // let method = req.method.unwrap();
+                                // let result =
+                                //     (Method::try_from_str(req.method.unwrap()).ok_or_else(|| {
+                                //         Error::UnknownMethod(method.to_string())
+                                //          })?,
+                                //      req.path.unwrap(),
+                                //      req.version.unwrap(),
+                                //      req.headers.len(),
+                                //      body_offset);
+                                // Ok(result)
                             }
                         }
                     };
@@ -262,7 +263,7 @@ pub type ReadBodyBytes<'a> = BoxFuture<(Request<'a>, Vec<u8>), (Request<'a>, Err
 // }
 
 pub struct Request<'a> {
-    method: Method<'a>,
+    method: Method,
     path: &'a str,
     version: u8,
     headers: Vec<httparse::Header<'a>>,

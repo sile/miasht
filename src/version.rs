@@ -1,7 +1,5 @@
 use std::fmt;
 
-use {Result, Error};
-
 /// HTTP version.
 ///
 /// # Examples

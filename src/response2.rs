@@ -1,5 +1,5 @@
 use std::mem;
-use std::io::{self, Write, Read};
+use std::io::{self, Read};
 use futures::{Future, Poll, Async};
 use handy_async::io::AsyncWrite;
 use handy_async::io::futures::Flush;
