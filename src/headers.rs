@@ -1,3 +1,4 @@
+use std::fmt;
 use std::io::{Error, ErrorKind, Result, Write};
 use std::str;
 use std::u64;
@@ -24,7 +25,11 @@ impl Header for ContentLength {
         write!(buf, "Content-Length: {}", self.0).unwrap();
     }
 }
-
+impl fmt::Display for ContentLength {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Content-Length: {}", self.0)
+    }
+}
 fn decimal_bytes_to_u64(bytes: &[u8]) -> Result<u64> {
     str::from_utf8(bytes)
         .map_err(to_invalid_data_error)

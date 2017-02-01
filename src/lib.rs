@@ -11,6 +11,7 @@ use std::io;
 pub mod server;
 pub mod server2;
 pub mod client;
+pub mod client2;
 pub mod headers;
 
 pub mod route;
@@ -20,6 +21,17 @@ pub mod response;
 pub mod error;
 pub mod connection;
 pub mod status;
+
+pub mod connection2;
+pub mod request2;
+pub mod response2;
+pub use error::Error;
+
+pub use version::Version;
+pub use method::Method;
+
+mod version;
+mod method;
 
 pub type Result<T> = ::std::result::Result<T, error::Error>;
 
@@ -73,31 +85,7 @@ impl<'a> fmt::Display for Method<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[allow(non_camel_case_types)]
-pub enum Version {
-    Http1_0,
-    Http1_1,
-}
-impl Version {
-    pub fn from_u8(value: u8) -> Result<Self> {
-        match value {
-            0 => Ok(Version::Http1_0),
-            1 => Ok(Version::Http1_1),
-            _ => Err(error::Error::UnknownVersion(value)),
-        }
-    }
-}
-impl fmt::Display for Version {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Version::Http1_0 => write!(f, "HTTP/1.0"),
-            Version::Http1_1 => write!(f, "HTTP/1.1"),
-        }
-    }
-}
-
-pub trait Header {
+pub trait Header: fmt::Display {
     fn parse(headers: &Headers) -> io::Result<Option<Self>> where Self: Sized;
     fn write(&self, buf: &mut Vec<u8>);
 }

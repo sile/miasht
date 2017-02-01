@@ -9,6 +9,28 @@ use connection::Connection;
 use response::Response;
 use status::Status;
 
+// impl Connection {
+//     fn read_request();
+//     fn read_response();
+//     fn build_request();
+//     fn build_response();
+// }
+
+#[derive(Debug)]
+pub struct RequestBuilder<S> {
+    connection: Connection<S>,
+}
+impl<S> RequestBuilder<S> {
+    pub fn new(mut connection: Connection<S>,
+               _version: Version,
+               _method: Method,
+               _path: &str)
+               -> Self {
+        connection.buffer.reset();
+        RequestBuilder { connection: connection }
+    }
+}
+
 #[derive(Debug)]
 pub struct Request<S> {
     connection: Connection<S>,
@@ -18,6 +40,16 @@ pub struct Request<S> {
     headers: &'static [httparse::Header<'static>],
 }
 impl<S> Request<S> {
+    // pub fn new(connection: Connection<S>, method: Method) -> Self {
+    //     let (bytes, headers) = unsafe { connection.buffer.bytes_and_headers() };
+    //     Request {
+    //         connection: connection,
+    //         version: Version::Http1_1,
+    //         method: method,
+    //         path: bytes,
+    //         headers: headers,
+    //     };
+    // }
     pub fn read_from(connection: Connection<S>) -> ReadRequest<S> {
         ReadRequest(Some(connection))
     }
@@ -27,6 +59,14 @@ impl<S> Request<S> {
     pub fn version(&self) -> Version {
         self.version
     }
+    // pub fn set_version(&mut self, version: Version) -> &mut Self {
+    //     self.version = version;
+    //     self
+    // }
+    // pub fn with_version(mut self, version: Version) -> Self {
+    //     self.version = version;
+    //     self
+    // }
     pub fn path(&self) -> &str {
         self.path
     }
@@ -80,7 +120,11 @@ impl<S> ReadRequest<S>
             Ok(httparse::Status::Complete(body_offset)) => {
                 connection.buffer.head = body_offset;
                 let method = Method::from_str(req.method.unwrap())?;
-                let version = Version::from_u8(req.version.unwrap())?;
+                let version = match req.version.unwrap() {
+                    0 => Version::Http1_0,
+                    1 => Version::Http1_1,
+                    v => Err(Error::UnknownVersion(v))?,
+                };
                 Ok(Some(Request {
                     connection: connection,
                     method: method,

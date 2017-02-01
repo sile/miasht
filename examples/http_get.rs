@@ -8,8 +8,9 @@ extern crate handy_async;
 use clap::{App, Arg};
 use fibers::{Executor, InPlaceExecutor};
 use futures::Future;
-use miasht::client::HttpClient;
-use handy_async::io::ReadFrom;
+use miasht::client2::Client;
+use miasht::request2::RequestBuilder;
+use handy_async::io::{AsyncWrite, ReadFrom};
 use handy_async::pattern::read::{All, Utf8};
 
 fn main() {
@@ -24,16 +25,25 @@ fn main() {
     let addr = format!("{}:{}", host, port).parse().expect("Invalid address");
 
     let mut executor = InPlaceExecutor::new().unwrap();
-    let monitor = executor.spawn_monitor(HttpClient::connect(addr)
-            .and_then(move |client| {
-                let req = client.request(miasht::Method::Get, &path, miasht::Version::Http1_1);
-                req.finish()
-            })
-            .and_then(|res| {
-                Utf8(All).read_from(res).map(|(_, body)| body).map_err(|e| e.into_error())
-            }));
+    let monitor = executor.spawn_monitor(Client::connect(addr)
+        .and_then(move |connection| {
+            let req = RequestBuilder::new(connection,
+                                          miasht::Method::Get,
+                                          &path,
+                                          miasht::Version::Http1_0);
+            req.into_body().async_flush().map_err(|e| miasht::error::Error::Io(e.into_error()))
+        })
+        .and_then(|req| req.read_response())
+        .and_then(|res| {
+            println!("RES: {}", res.status());
+            println!("HED: {:?}", res.headers());
+            Utf8(All)
+                .read_from(res.into_body())
+                .map(|(_, body)| body)
+                .map_err(|e| miasht::error::Error::Io(e.into_error()))
+        }));
     match executor.run_fiber(monitor).unwrap() {
         Ok(s) => println!("{}", s),
-        Err(e) => println!("[ERROR] {}", e),
+        Err(e) => println!("[ERROR] {:?}", e),
     }
 }
