@@ -26,6 +26,10 @@ impl<'a> Headers<'a> {
     }
 }
 
+pub trait GetHeaders {
+    fn get_headers(&self) -> &Headers;
+}
+
 #[derive(Debug)]
 pub struct Iter<'a>(slice::Iter<'a, httparse::Header<'a>>);
 impl<'a> Iterator for Iter<'a> {

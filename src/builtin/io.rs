@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 use TransportStream;
-use header::Headers;
+use header::{Headers, GetHeaders};
 use client::Response;
 
 // TODO: timeout, gzip, max-length
@@ -12,6 +12,13 @@ pub enum BodyReader<R> {
     Fixed(FixedLengthBodyReader<R>),
     Raw(R),
 }
+impl<R> BodyReader<R>
+    where R: GetHeaders + TransportStream
+{
+    pub fn new(inner: R) -> Self {
+        panic!()
+    }
+}
 impl<R> BodyReader<R> {
     pub fn into_inner(self) -> R {
         match self {
@@ -19,11 +26,6 @@ impl<R> BodyReader<R> {
             BodyReader::Fixed(r) => r.into_inner(),
             BodyReader::Raw(r) => r,
         }
-    }
-}
-impl<T: TransportStream> From<Response<T>> for BodyReader<Response<T>> {
-    fn from(f: Response<T>) -> Self {
-        panic!()
     }
 }
 

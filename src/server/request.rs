@@ -3,7 +3,7 @@ use httparse;
 use futures::{Future, Poll, Async};
 
 use {Error, ErrorKind, Version, Method, TransportStream};
-use header::Headers;
+use header::{Headers, GetHeaders};
 use super::Connection;
 
 #[derive(Debug)]
@@ -60,7 +60,7 @@ pub struct Request<T> {
     headers: Headers<'static>,
     connection: Connection<T>,
 }
-impl<T: TransportStream> Request<T> {
+impl<T> Request<T> {
     pub fn version(&self) -> Version {
         self.version
     }
@@ -73,6 +73,11 @@ impl<T: TransportStream> Request<T> {
     pub fn finish(mut self) -> Connection<T> {
         self.connection.version = self.version;
         self.connection
+    }
+}
+impl<T> GetHeaders for Request<T> {
+    fn get_headers(&self) -> &Headers {
+        self.headers()
     }
 }
 impl<T: TransportStream> Read for Request<T> {

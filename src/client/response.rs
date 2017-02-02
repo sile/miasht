@@ -4,7 +4,7 @@ use futures::{Future, Poll, Async};
 
 use {Version, Error, ErrorKind};
 use status::RawStatus;
-use header::Headers;
+use header::{Headers, GetHeaders};
 use connection::TransportStream;
 use super::Connection;
 
@@ -61,7 +61,7 @@ pub struct Response<T> {
     headers: Headers<'static>,
     connection: Connection<T>,
 }
-impl<T: TransportStream> Response<T> {
+impl<T> Response<T> {
     pub fn version(&self) -> Version {
         self.version
     }
@@ -73,6 +73,11 @@ impl<T: TransportStream> Response<T> {
     }
     pub fn finish(self) -> Connection<T> {
         self.connection
+    }
+}
+impl<T> GetHeaders for Response<T> {
+    fn get_headers(&self) -> &Headers {
+        self.headers()
     }
 }
 impl<T: TransportStream> Read for Response<T> {
