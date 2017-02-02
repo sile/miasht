@@ -6,8 +6,8 @@ use fibers::net::streams::Incoming;
 use futures::{self, Future, Stream, Poll, Async};
 use futures::future::Either;
 
-pub use self::request::{Request, ReadRequest, RequestBodyReader};
-pub use self::response::{Response, ResponseBodyWriter, FinishResponse};
+pub use self::request::{Request, ReadRequest};
+pub use self::response::Response;
 
 use {Result, Error, Status, TransportStream, Version};
 use connection2::{self, ByteBuffer, HeaderBuffer};
@@ -67,6 +67,11 @@ impl<T: TransportStream> Connection<T> {
     }
     pub fn response(self, status: Status) -> Response<T> {
         Response::new(self, status)
+    }
+}
+impl<T> AsMut<connection2::Connection<T>> for Connection<T> {
+    fn as_mut(&mut self) -> &mut connection2::Connection<T> {
+        &mut self.inner
     }
 }
 

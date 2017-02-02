@@ -1,9 +1,9 @@
-use std::io::{self, Write};
-use futures::{Future, Poll, Async};
+use std::io::Write;
 
-use {Method, Error};
+use Method;
 use header::Header;
 use connection2::TransportStream;
+use io::{BodyWriter, Finish};
 use super::Connection;
 
 #[derive(Debug)]
@@ -28,52 +28,11 @@ impl<T: TransportStream> Request<T> {
         let _ = write!(self.0.inner.buffer_mut(), "{}\r\n", header);
         self
     }
-    pub fn into_body_writer(mut self) -> RequestBodyWriter<T> {
+    pub fn into_body_writer(mut self) -> BodyWriter<Connection<T>, T> {
         let _ = write!(self.0.inner.buffer_mut(), "\r\n");
-        RequestBodyWriter(self.0)
+        BodyWriter::new(self.0)
     }
-    pub fn finish(self) -> FinishRequest<T> {
+    pub fn finish(self) -> Finish<Connection<T>, T> {
         self.into_body_writer().finish()
-    }
-}
-
-#[derive(Debug)]
-pub struct RequestBodyWriter<T>(Connection<T>);
-impl<T: TransportStream> RequestBodyWriter<T> {
-    pub fn finish(self) -> FinishRequest<T> {
-        FinishRequest(Some(self))
-    }
-}
-impl<T: TransportStream> Write for RequestBodyWriter<T> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if !self.0.inner.buffer().is_empty() {
-            self.0.inner.flush_buffer()?;
-        }
-        self.0.inner.stream_mut().write(buf)
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        self.0.inner.flush_buffer()?;
-        self.0.inner.stream_mut().flush()
-    }
-}
-
-#[derive(Debug)]
-pub struct FinishRequest<T>(Option<RequestBodyWriter<T>>);
-impl<T: TransportStream> Future for FinishRequest<T> {
-    type Item = super::Connection<T>;
-    type Error = Error;
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let mut inner = self.0.take().expect("Cannot poll FinishRequest twice");
-        match inner.flush() {
-            Err(e) => {
-                if e.kind() == io::ErrorKind::WouldBlock {
-                    self.0 = Some(inner);
-                    Ok(Async::NotReady)
-                } else {
-                    Err(Error::Io(e))
-                }
-            }
-            Ok(()) => Ok(Async::Ready(inner.0)),
-        }
     }
 }

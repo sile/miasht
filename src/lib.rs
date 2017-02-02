@@ -19,6 +19,7 @@ pub mod builtin;
 pub mod header;
 pub mod client;
 pub mod server;
+pub mod io;
 mod error;
 mod method;
 mod status;

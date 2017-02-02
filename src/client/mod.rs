@@ -2,8 +2,8 @@ use std::net::SocketAddr;
 use fibers::net::{self, TcpStream};
 use futures::{Future, Poll};
 
-pub use self::request::{Request, RequestBodyWriter, FinishRequest};
-pub use self::response::{Response, ReadResponse, ResponseBodyReader};
+pub use self::request::Request;
+pub use self::response::{Response, ReadResponse};
 
 use {Error, Method, Version};
 use defaults;
@@ -75,6 +75,11 @@ impl<T: TransportStream> Connection<T> {
     }
     pub fn read_response(self) -> ReadResponse<T> {
         ReadResponse::new(self)
+    }
+}
+impl<T> AsMut<connection2::Connection<T>> for Connection<T> {
+    fn as_mut(&mut self) -> &mut connection2::Connection<T> {
+        &mut self.inner
     }
 }
 
