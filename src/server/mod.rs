@@ -10,7 +10,7 @@ pub use self::request::{Request, ReadRequest};
 pub use self::response::Response;
 
 use {Result, Error, Status, TransportStream, Version};
-use connection2::{self, ByteBuffer, HeaderBuffer};
+use connection::{self, ByteBuffer, HeaderBuffer};
 
 mod request;
 mod response;
@@ -51,12 +51,12 @@ pub trait HandleConnection: Sized + Send + 'static {
 
 #[derive(Debug)]
 pub struct Connection<T> {
-    inner: connection2::Connection<T>,
+    inner: connection::Connection<T>,
     version: Version,
 }
 impl<T: TransportStream> Connection<T> {
     pub fn new(stream: T, buffer: ByteBuffer, headers: HeaderBuffer) -> Self {
-        let inner = connection2::Connection::new(stream, buffer, headers);
+        let inner = connection::Connection::new(stream, buffer, headers);
         Connection {
             inner: inner,
             version: Version::default(),
@@ -69,8 +69,8 @@ impl<T: TransportStream> Connection<T> {
         Response::new(self, status)
     }
 }
-impl<T> AsMut<connection2::Connection<T>> for Connection<T> {
-    fn as_mut(&mut self) -> &mut connection2::Connection<T> {
+impl<T> AsMut<connection::Connection<T>> for Connection<T> {
+    fn as_mut(&mut self) -> &mut connection::Connection<T> {
         &mut self.inner
     }
 }

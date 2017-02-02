@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use futures::{Future, Poll, Async};
 
 use {Error, TransportStream};
-use connection2::Connection;
+use connection::Connection;
 
 #[derive(Debug)]
 pub struct BodyWriter<C, T> {

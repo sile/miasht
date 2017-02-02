@@ -2,7 +2,7 @@ use std::io::Write;
 
 use Method;
 use header::Header;
-use connection2::TransportStream;
+use connection::TransportStream;
 use io::{BodyWriter, Finish};
 use super::Connection;
 

@@ -5,15 +5,13 @@ extern crate futures;
 extern crate httparse;
 extern crate handy_async;
 
-mod connection2;
-
 pub use client::Client;
 pub use server::Server;
 pub use error::Error;
 pub use method::Method;
 pub use status::{Status, RawStatus};
 pub use version::Version;
-pub use connection2::TransportStream;
+pub use connection::TransportStream;
 
 pub mod builtin;
 pub mod header;
@@ -24,6 +22,7 @@ mod error;
 mod method;
 mod status;
 mod version;
+mod connection;
 
 pub type Result<T> = ::std::result::Result<T, error::Error>;
 

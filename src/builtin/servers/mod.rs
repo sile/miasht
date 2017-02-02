@@ -4,7 +4,7 @@ use futures::{self, Future, Finished};
 use {Error, Server, TransportStream};
 use defaults;
 use server::{Connection, HandleSocket, HandleConnection};
-use connection2::{ByteBuffer, HeaderBuffer};
+use connection::{ByteBuffer, HeaderBuffer};
 
 pub type RawConnection = Connection<TcpStream>;
 

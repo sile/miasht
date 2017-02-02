@@ -7,7 +7,7 @@ pub use self::response::{Response, ReadResponse};
 
 use {Error, Method, Version};
 use defaults;
-use connection2::{self, ByteBuffer, HeaderBuffer, TransportStream};
+use connection::{self, ByteBuffer, HeaderBuffer, TransportStream};
 
 mod request;
 mod response;
@@ -57,14 +57,14 @@ impl Client {
 
 #[derive(Debug)]
 pub struct Connection<T> {
-    inner: connection2::Connection<T>,
+    inner: connection::Connection<T>,
     version: Version,
 }
 impl<T: TransportStream> Connection<T> {
     fn new(stream: T, client: &Client) -> Self {
         let bytes = ByteBuffer::new(client.min_buffer_size, client.max_buffer_size);
         let headers = HeaderBuffer::new(client.max_response_header_count);
-        let inner = connection2::Connection::new(stream, bytes, headers);
+        let inner = connection::Connection::new(stream, bytes, headers);
         Connection {
             inner: inner,
             version: client.version,
@@ -77,8 +77,8 @@ impl<T: TransportStream> Connection<T> {
         ReadResponse::new(self)
     }
 }
-impl<T> AsMut<connection2::Connection<T>> for Connection<T> {
-    fn as_mut(&mut self) -> &mut connection2::Connection<T> {
+impl<T> AsMut<connection::Connection<T>> for Connection<T> {
+    fn as_mut(&mut self) -> &mut connection::Connection<T> {
         &mut self.inner
     }
 }

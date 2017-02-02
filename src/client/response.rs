@@ -4,7 +4,7 @@ use futures::{Future, Poll, Async};
 use {Version, Error, RawStatus};
 use version;
 use header::Headers;
-use connection2::TransportStream;
+use connection::TransportStream;
 use io::BodyReader;
 use super::Connection;
 
