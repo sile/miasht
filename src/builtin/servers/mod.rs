@@ -4,7 +4,6 @@ use futures::{self, Future, Finished};
 use {Error, Server, TransportStream};
 use defaults;
 use server::{Connection, HandleSocket, HandleConnection};
-use connection::{ByteBuffer, HeaderBuffer};
 
 pub type RawConnection = Connection<TcpStream>;
 
@@ -75,9 +74,11 @@ impl HandleSocket for RawSocketHandler {
     type Transport = TcpStream;
     type Future = Finished<Connection<Self::Transport>, Error>;
     fn handle(self, socket: TcpStream) -> Self::Future {
-        let buffer = ByteBuffer::new(self.min_buffer_size, self.max_buffer_size);
-        let headers = HeaderBuffer::new(self.max_request_header_count);
-        futures::finished(Connection::new(socket, buffer, headers))
+        let connection = Connection::new(socket,
+                                         self.min_buffer_size,
+                                         self.max_buffer_size,
+                                         self.max_request_header_count);
+        futures::finished(connection)
     }
 }
 

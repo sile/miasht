@@ -1,22 +1,25 @@
-use std::io::Write;
+use std::io::{self, Write};
+use futures::{Future, Poll, Async};
 
-use TransportStream;
+use {Error, TransportStream};
 use status::RawStatus;
 use header::Header;
-use io::{BodyWriter, Finish};
 use super::Connection;
 
+pub fn builder<T>(mut connection: Connection<T>, status: RawStatus) -> ResponseBuilder<T>
+    where T: TransportStream
+{
+    connection.inner.reset();
+    let _ = write!(connection.inner.buffer_mut(),
+                   "{} {}\r\n",
+                   connection.version,
+                   status);
+    ResponseBuilder(connection)
+}
+
 #[derive(Debug)]
-pub struct Response<T>(Connection<T>);
-impl<T: TransportStream> Response<T> {
-    pub fn new(mut connection: Connection<T>, status: RawStatus) -> Self {
-        connection.inner.reset();
-        let _ = write!(connection.inner.buffer_mut(),
-                       "{} {}\r\n",
-                       connection.version,
-                       status);
-        Response(connection)
-    }
+pub struct ResponseBuilder<T>(Connection<T>);
+impl<T: TransportStream> ResponseBuilder<T> {
     pub fn add_raw_header(&mut self, name: &str, value: &[u8]) -> &mut Self {
         let _ = write!(self.0.inner.buffer_mut(), "{}: ", name);
         let _ = self.0.inner.buffer_mut().write_all(value);
@@ -27,11 +30,49 @@ impl<T: TransportStream> Response<T> {
         let _ = write!(self.0.inner.buffer_mut(), "{}\r\n", header);
         self
     }
-    pub fn into_body_writer(mut self) -> BodyWriter<Connection<T>, T> {
+    pub fn finish(mut self) -> Response<T> {
         let _ = write!(self.0.inner.buffer_mut(), "\r\n");
-        BodyWriter::new(self.0)
+        Response(Some(self.0))
     }
-    pub fn finish(self) -> Finish<Connection<T>, T> {
-        self.into_body_writer().finish()
+}
+
+#[derive(Debug)]
+pub struct Response<T>(Option<Connection<T>>);
+impl<T: TransportStream> Write for Response<T> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if let Some(ref mut c) = self.0 {
+            if !c.inner.buffer().is_empty() {
+                c.inner.flush_buffer()?;
+            }
+            c.inner.stream_mut().write(buf)
+        } else {
+            Err(io::Error::new(io::ErrorKind::WriteZero,
+                               "Cannot write into finished response"))
+        }
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        if let Some(ref mut c) = self.0 {
+            c.inner.flush_buffer()?;
+            c.inner.stream_mut().flush()?;
+        }
+        Ok(())
+    }
+}
+impl<T: TransportStream> Future for Response<T> {
+    type Item = Connection<T>;
+    type Error = Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self.flush() {
+            Err(e) => {
+                if e.kind() != io::ErrorKind::WouldBlock {
+                    bail!(e);
+                }
+                Ok(Async::NotReady)
+            }
+            Ok(()) => {
+                let connection = self.0.take().expect("Cannot poll Response twice");
+                Ok(Async::Ready(connection))
+            }
+        }
     }
 }

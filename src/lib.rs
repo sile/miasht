@@ -17,7 +17,6 @@ pub mod header;
 pub mod client;
 pub mod server;
 pub mod status;
-pub mod io;
 mod method;
 mod version;
 mod connection;

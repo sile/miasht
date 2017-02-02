@@ -25,7 +25,7 @@ fn main() {
     let mut executor = InPlaceExecutor::new().unwrap();
     let monitor = executor.spawn_monitor(Client::new()
         .connect(addr)
-        .and_then(move |connection| connection.request(Method::Get, &path).finish())
+        .and_then(move |connection| connection.build_request(Method::Get, &path).finish())
         .and_then(|req| req.read_response())
         .and_then(|res| {
             Utf8(All)

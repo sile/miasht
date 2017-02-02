@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use fibers::net::{self, TcpStream};
 use futures::{Future, Poll};
 
-pub use self::request::Request;
+pub use self::request::{Request, RequestBuilder};
 pub use self::response::{Response, ReadResponse};
 
 use {Error, Method, Version};
@@ -70,9 +70,10 @@ impl<T: TransportStream> Connection<T> {
             version: client.version,
         }
     }
-    pub fn request(self, method: Method, path: &str) -> Request<T> {
-        Request::new(self, method, path)
+    pub fn build_request(self, method: Method, path: &str) -> RequestBuilder<T> {
+        request::builder(self, method, path)
     }
+
     pub fn read_response(self) -> ReadResponse<T> {
         ReadResponse::new(self)
     }

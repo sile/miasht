@@ -31,12 +31,12 @@ fn echo(_: (), connection: RawConnection) -> BoxFuture<(), ()> {
             buf.truncate(size);
             let connection = body.finish();
 
-            let mut resp = connection.response(Status::Ok);
-            resp.add_header(&ContentLength(buf.len() as u64));
-            resp.into_body_writer()
+            let mut builder = connection.build_response(Status::Ok);
+            builder.add_header(&ContentLength(buf.len() as u64));
+            builder.finish()
                 .async_write_all(buf)
                 .map_err(|e| e.into_error().into())
-                .and_then(|(s, _)| s.finish())
+                .and_then(|(s, _)| s)
                 .then(|_| Ok(()))
         })
         .map_err(|e| {

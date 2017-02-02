@@ -7,7 +7,7 @@ use futures::{self, Future, Stream, Poll, Async};
 use futures::future::Either;
 
 pub use self::request::{Request, ReadRequest};
-pub use self::response::Response;
+pub use self::response::{Response, ResponseBuilder};
 
 use {Result, Error, ErrorKind, TransportStream, Version};
 use status::RawStatus;
@@ -56,7 +56,13 @@ pub struct Connection<T> {
     version: Version,
 }
 impl<T: TransportStream> Connection<T> {
-    pub fn new(stream: T, buffer: ByteBuffer, headers: HeaderBuffer) -> Self {
+    pub fn new(stream: T,
+               min_buffer_size: usize,
+               max_buffer_size: usize,
+               max_header_count: usize)
+               -> Self {
+        let buffer = ByteBuffer::new(min_buffer_size, max_buffer_size);
+        let headers = HeaderBuffer::new(max_header_count);
         let inner = connection::Connection::new(stream, buffer, headers);
         Connection {
             inner: inner,
@@ -66,10 +72,10 @@ impl<T: TransportStream> Connection<T> {
     pub fn read_request(self) -> ReadRequest<T> {
         ReadRequest::new(self)
     }
-    pub fn response<'a, S>(self, status: S) -> Response<T>
+    pub fn build_response<'a, S>(self, status: S) -> ResponseBuilder<T>
         where S: Into<RawStatus<'a>>
     {
-        Response::new(self, status.into())
+        response::builder(self, status.into())
     }
 }
 impl<T> AsMut<connection::Connection<T>> for Connection<T> {
@@ -117,18 +123,18 @@ impl ServerHandle {
             command_tx: command_tx,
         }
     }
-    pub fn stop(self) -> Join {
+    pub fn stop(self) -> JoinServer {
         let _ = self.command_tx.send(Command::Stop);
-        Join(self)
+        JoinServer(self)
     }
-    pub fn join(self) -> Join {
-        Join(self)
+    pub fn join(self) -> JoinServer {
+        JoinServer(self)
     }
 }
 
 #[derive(Debug)]
-pub struct Join(ServerHandle);
-impl Future for Join {
+pub struct JoinServer(ServerHandle);
+impl Future for JoinServer {
     type Item = ();
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
