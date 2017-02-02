@@ -1,15 +1,14 @@
 use std::fmt;
 use std::u64;
 
-use Header;
-use error::HeaderParseError;
+use header::{Header, ParseError};
 
 /// `Content-Length` header.
 ///
 /// # Examples
 ///
 /// ```
-/// use miasht::Header;
+/// use miasht::header::Header;
 /// use miasht::builtin::headers::ContentLength;
 ///
 /// assert_eq!(ContentLength(10).to_string(), "Content-Length: 10");
@@ -27,7 +26,7 @@ impl Header for ContentLength {
     fn name() -> &'static str {
         "Content-Length"
     }
-    fn parse_value_str(value: &str) -> Result<Self, HeaderParseError> {
+    fn parse_value_str(value: &str) -> Result<Self, ParseError> {
         Ok(ContentLength(u64::from_str_radix(value, 10)?))
     }
 }

@@ -5,7 +5,8 @@ use handy_async::io::AsyncWrite;
 use handy_async::io::futures::Flush;
 use httparse;
 
-use {Version, Headers};
+use Version;
+use header::Headers;
 use status::RawStatus;
 use connection2::{Connection, TransportStream};
 use request2::RequestBodyWriter;

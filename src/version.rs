@@ -1,5 +1,7 @@
 use std::fmt;
 
+use Error;
+
 /// HTTP version.
 ///
 /// # Examples
@@ -25,5 +27,13 @@ impl fmt::Display for Version {
             Version::Http1_0 => write!(f, "HTTP/1.0"),
             Version::Http1_1 => write!(f, "HTTP/1.1"),
         }
+    }
+}
+
+pub fn try_from_u8(value: u8) -> Result<Version, Error> {
+    match value {
+        0 => Ok(Version::Http1_0),
+        1 => Ok(Version::Http1_1),
+        _ => Err(Error::UnknownVersion(value)),
     }
 }

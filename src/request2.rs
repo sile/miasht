@@ -1,6 +1,7 @@
 use std::io::{self, Write};
 
-use {Version, Method, Header};
+use {Version, Method};
+use header::Header;
 use connection2::{Connection, TransportStream};
 use response2::ReadResponse;
 

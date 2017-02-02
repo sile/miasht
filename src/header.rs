@@ -5,7 +5,7 @@ use std::slice;
 use std::ascii::AsciiExt;
 use httparse;
 
-pub type HeaderParseError = Box<error::Error + Send + Sync>;
+pub type ParseError = Box<error::Error + Send + Sync>;
 
 #[derive(Debug)]
 pub struct Headers<'a>(&'a [httparse::Header<'a>]);
@@ -13,7 +13,7 @@ impl<'a> Headers<'a> {
     pub fn new(headers: &'a [httparse::Header<'a>]) -> Self {
         Headers(headers)
     }
-    pub fn parse<H: Header>(&self) -> Result<Option<H>, HeaderParseError> {
+    pub fn parse<H: Header>(&self) -> Result<Option<H>, ParseError> {
         if let Some(v) = self.get(H::name()) {
             H::parse_value_bytes(v).map(Some)
         } else {
@@ -39,8 +39,8 @@ impl<'a> Iterator for Iter<'a> {
 
 pub trait Header: Sized + fmt::Display {
     fn name() -> &'static str;
-    fn parse_value_bytes(value: &[u8]) -> Result<Self, HeaderParseError> {
+    fn parse_value_bytes(value: &[u8]) -> Result<Self, ParseError> {
         Self::parse_value_str(str::from_utf8(value)?)
     }
-    fn parse_value_str(value: &str) -> Result<Self, HeaderParseError>;
+    fn parse_value_str(value: &str) -> Result<Self, ParseError>;
 }
