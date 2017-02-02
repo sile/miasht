@@ -26,7 +26,12 @@ impl<T: TransportStream> Future for ReadResponse<T> {
         let mut res = httparse::Response::new(headers);
         if let httparse::Status::Complete(body_offset) = res.parse(bytes)? {
             connection.inner.buffer_mut().consume(body_offset);
-            let version = version::from_u8(res.version.unwrap());
+            let version = if res.version.unwrap() == 0 {
+                Version::Http1_0
+            } else {
+                debug_assert_eq!(res.version.unwrap(), 1);
+                Version::Http1_1
+            };
             let status = RawStatus::new(res.code.unwrap(), res.reason.unwrap());
             Ok(Async::Ready(Response {
                 version: version,

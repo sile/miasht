@@ -32,12 +32,3 @@ impl Default for Version {
         Version::Http1_1
     }
 }
-
-// TODO: delete
-pub fn from_u8(httparse_result_value: u8) -> Version {
-    match httparse_result_value {
-        0 => Version::Http1_0,
-        1 => Version::Http1_1,
-        _ => unreachable!(),
-    }
-}

@@ -24,7 +24,12 @@ impl<T: TransportStream> Future for ReadRequest<T> {
         let mut req = httparse::Request::new(headers);
         if let httparse::Status::Complete(body_offset) = req.parse(bytes)? {
             connection.inner.buffer_mut().consume(body_offset);
-            let version = version::from_u8(req.version.unwrap());
+            let version = if req.version.unwrap() == 0 {
+                Version::Http1_0
+            } else {
+                debug_assert_eq!(req.version.unwrap(), 1);
+                Version::Http1_1
+            };
             let method = Method::try_from_str(req.method.unwrap())
                     .ok_or_else(|| ErrorKind::UnknownMethod(req.method.unwrap().to_string()))?;
             Ok(Async::Ready(Request {
