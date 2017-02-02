@@ -26,7 +26,7 @@ impl Client {
             max_response_header_count: defaults::MAX_HEADER_COUNT,
             min_buffer_size: defaults::MIN_BUFFER_SIZE,
             max_buffer_size: defaults::MAX_BUFFER_SIZE,
-            version: defaults::VERSION,
+            version: Version::default(),
         }
     }
     pub fn max_response_header_count(&mut self, count: usize) -> &mut Self {

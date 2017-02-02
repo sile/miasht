@@ -29,6 +29,11 @@ impl fmt::Display for Version {
         }
     }
 }
+impl Default for Version {
+    fn default() -> Self {
+        Version::Http1_1
+    }
+}
 
 pub fn try_from_u8(value: u8) -> Result<Version, Error> {
     match value {

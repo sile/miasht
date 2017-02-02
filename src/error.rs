@@ -3,6 +3,8 @@ use httparse;
 
 use header;
 
+// TODO: impl Error
+
 #[derive(Debug)]
 pub enum Error {
     UnknownMethod(String),
