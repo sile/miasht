@@ -63,6 +63,27 @@ pub enum ParseValueError<E> {
     },
     Malformed { name: &'static str, reason: E },
 }
+impl<E> ParseValueError<E>
+    where E: error::Error + Send + Sync + 'static
+{
+    pub fn boxed(self) -> ParseValueError<Box<error::Error + Send + Sync>> {
+        match self {
+            ParseValueError::Malformed { name, reason } => {
+                let reason: Box<error::Error + Send + Sync> = Box::new(reason);
+                ParseValueError::Malformed {
+                    name: name,
+                    reason: reason,
+                }
+            }
+            ParseValueError::InvalidUtf8 { name, reason } => {
+                ParseValueError::InvalidUtf8 {
+                    name: name,
+                    reason: reason,
+                }
+            }
+        }
+    }
+}
 impl<E> fmt::Display for ParseValueError<E>
     where E: fmt::Display
 {

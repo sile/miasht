@@ -28,10 +28,10 @@ pub mod defaults {
     pub const MAX_BUFFER_SIZE: usize = 8096;
 }
 
-error_chain!{
+error_chain! {
     errors {
         TooLargeNonBodyPart {
-            description("Too large non-body part")
+            description("Too large HTTP non-body part")
         }
         ServerAborted {
             description("HTTP server is unintentionally exited")
@@ -40,10 +40,21 @@ error_chain!{
             description("Unknown HTTP method")
             display("Unknown HTTP method: {:?}", method)
         }
+        WrongHeader(error: header::ParseValueError<Box<std::error::Error + Send + Sync>>) {
+            description("Wrong HTTP header")
+            display("Wrong HTTP header: {}", error)
+        }
     }
     foreign_links {
         Parse(httparse::Error);
         Io(std::io::Error);
+    }
+}
+impl<E> From<header::ParseValueError<E>> for Error
+    where E: std::error::Error + Send + Sync + 'static
+{
+    fn from(f: header::ParseValueError<E>) -> Self {
+        ErrorKind::WrongHeader(f.boxed()).into()
     }
 }
 
