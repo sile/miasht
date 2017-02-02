@@ -24,9 +24,8 @@ fn main() {
 fn echo(_: (), connection: RawConnection) -> BoxFuture<(), ()> {
     connection.read_request()
         .and_then(|request| {
-            let body = request.into_body_reader();
             let buf = vec![0; 1024];
-            body.async_read(buf).map_err(|e| e.into_error().into())
+            request.async_read(buf).map_err(|e| e.into_error().into())
         })
         .and_then(|(body, mut buf, size)| {
             buf.truncate(size);

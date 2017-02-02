@@ -1,4 +1,4 @@
-use std::io::{self, Write, Read};
+use std::io::{self, Write};
 use std::marker::PhantomData;
 use futures::{Future, Poll, Async};
 
@@ -59,38 +59,6 @@ impl<C, T> Future for Finish<C, T>
                 Ok(Async::NotReady)
             }
             Ok(()) => Ok(Async::Ready(inner.inner)),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct BodyReader<C, T> {
-    inner: C,
-    _transport: PhantomData<T>,
-}
-impl<C, T> BodyReader<C, T>
-    where C: AsMut<Connection<T>>,
-          T: TransportStream
-{
-    pub fn new(connection: C) -> Self {
-        BodyReader {
-            inner: connection,
-            _transport: PhantomData,
-        }
-    }
-    pub fn finish(self) -> C {
-        self.inner
-    }
-}
-impl<C, T> Read for BodyReader<C, T>
-    where C: AsMut<Connection<T>>,
-          T: TransportStream
-{
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if !self.inner.as_mut().buffer().is_empty() {
-            self.inner.as_mut().buffer_mut().read(buf)
-        } else {
-            self.inner.as_mut().stream_mut().read(buf)
         }
     }
 }

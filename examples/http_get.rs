@@ -29,7 +29,7 @@ fn main() {
         .and_then(|req| req.read_response())
         .and_then(|res| {
             Utf8(All)
-                .read_from(res.into_body_reader())
+                .read_from(res)
                 .map(|(_, body)| body)
                 .map_err(|e| e.into_error().into())
         }));

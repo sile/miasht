@@ -1,10 +1,9 @@
+use std::io::{self, Read};
 use httparse;
 use futures::{Future, Poll, Async};
 
 use {Error, ErrorKind, Version, Method, TransportStream};
-use version;
 use header::Headers;
-use io::BodyReader;
 use super::Connection;
 
 #[derive(Debug)]
@@ -71,12 +70,17 @@ impl<T: TransportStream> Request<T> {
     pub fn headers(&self) -> &Headers {
         &self.headers
     }
-    pub fn into_body_reader(self) -> BodyReader<Connection<T>, T> {
-        let mut connection = self.connection;
-        connection.version = self.version;
-        BodyReader::new(connection)
+    pub fn finish(mut self) -> Connection<T> {
+        self.connection.version = self.version;
+        self.connection
     }
-    pub fn finish(self) -> Connection<T> {
-        self.into_body_reader().finish()
+}
+impl<T: TransportStream> Read for Request<T> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if !self.connection.inner.buffer().is_empty() {
+            self.connection.inner.buffer_mut().read(buf)
+        } else {
+            self.connection.inner.stream_mut().read(buf)
+        }
     }
 }

@@ -1,12 +1,11 @@
+use std::io::{self, Read};
 use httparse;
 use futures::{Future, Poll, Async};
 
 use {Version, Error, ErrorKind};
 use status::RawStatus;
-use version;
 use header::Headers;
 use connection::TransportStream;
-use io::BodyReader;
 use super::Connection;
 
 #[derive(Debug)]
@@ -72,10 +71,16 @@ impl<T: TransportStream> Response<T> {
     pub fn headers(&self) -> &Headers {
         &self.headers
     }
-    pub fn into_body_reader(self) -> BodyReader<Connection<T>, T> {
-        BodyReader::new(self.connection)
-    }
     pub fn finish(self) -> Connection<T> {
-        self.into_body_reader().finish()
+        self.connection
+    }
+}
+impl<T: TransportStream> Read for Response<T> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if !self.connection.inner.buffer().is_empty() {
+            self.connection.inner.buffer_mut().read(buf)
+        } else {
+            self.connection.inner.stream_mut().read(buf)
+        }
     }
 }
