@@ -1,7 +1,7 @@
 use httparse;
 use futures::{Future, Poll, Async};
 
-use {Error, Version, Method, TransportStream};
+use {Error, ErrorKind, Version, Method, TransportStream};
 use version;
 use header::Headers;
 use io::BodyReader;
@@ -22,32 +22,28 @@ impl<T: TransportStream> Future for ReadRequest<T> {
         let mut connection = self.0.take().expect("Cannot poll ReadRequest twice");
         let (bytes, headers) = unsafe { connection.inner.bytes_and_headers() };
         let mut req = httparse::Request::new(headers);
-        match req.parse(bytes) {
-            Err(e) => Err(Error::ParseFailure(e)),
-            Ok(httparse::Status::Partial) => {
-                if connection.inner.buffer().is_full() {
-                    Err(Error::TooLargeNonBodyPart)
+        if let httparse::Status::Complete(body_offset) = req.parse(bytes)? {
+            connection.inner.buffer_mut().consume(body_offset);
+            let version = version::from_u8(req.version.unwrap());
+            let method = Method::try_from_str(req.method.unwrap())
+                    .ok_or_else(|| ErrorKind::UnknownMethod(req.method.unwrap().to_string()))?;
+            Ok(Async::Ready(Request {
+                version: version,
+                method: method,
+                headers: Headers::new(req.headers),
+                connection: connection,
+            }))
+        } else {
+            if connection.inner.buffer().is_full() {
+                Err(ErrorKind::TooLargeNonBodyPart.into())
+            } else {
+                let filled = connection.inner.fill_buffer()?;
+                self.0 = Some(connection);
+                if filled {
+                    self.poll()
                 } else {
-                    let filled = connection.inner.fill_buffer().map_err(Error::Io)?;
-                    self.0 = Some(connection);
-                    if filled {
-                        self.poll()
-                    } else {
-                        Ok(Async::NotReady)
-                    }
+                    Ok(Async::NotReady)
                 }
-            }
-            Ok(httparse::Status::Complete(body_offset)) => {
-                connection.inner.buffer_mut().consume(body_offset);
-                let version = version::try_from_u8(req.version.unwrap())?;
-                let method = Method::try_from_str(req.method.unwrap())
-                    .ok_or_else(|| Error::UnknownMethod(req.method.unwrap().to_string()))?;
-                Ok(Async::Ready(Request {
-                    version: version,
-                    method: method,
-                    headers: Headers::new(req.headers),
-                    connection: connection,
-                }))
             }
         }
     }

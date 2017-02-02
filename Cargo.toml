@@ -4,12 +4,11 @@ version = "0.1.0"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 
 [dependencies]
-log = "0.3"
 fibers = "0.1"
 futures = "0.1"
-httparse = "1.2"
+httparse = "1"
 handy_async = "0.2"
+error-chain = "0.8"
 
 [dev-dependencies]
 clap = "2"
-env_logger = "0.3"

@@ -1,7 +1,5 @@
 use std::fmt;
 
-use Error;
-
 /// HTTP version.
 ///
 /// # Examples
@@ -35,10 +33,11 @@ impl Default for Version {
     }
 }
 
-pub fn try_from_u8(value: u8) -> Result<Version, Error> {
-    match value {
-        0 => Ok(Version::Http1_0),
-        1 => Ok(Version::Http1_1),
-        _ => Err(Error::UnknownVersion(value)),
+// TODO: delete
+pub fn from_u8(httparse_result_value: u8) -> Version {
+    match httparse_result_value {
+        0 => Version::Http1_0,
+        1 => Version::Http1_1,
+        _ => unreachable!(),
     }
 }

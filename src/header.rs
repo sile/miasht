@@ -5,15 +5,13 @@ use std::slice;
 use std::ascii::AsciiExt;
 use httparse;
 
-pub type ParseError = Box<error::Error + Send + Sync>;
-
 #[derive(Debug)]
 pub struct Headers<'a>(&'a [httparse::Header<'a>]);
 impl<'a> Headers<'a> {
     pub fn new(headers: &'a [httparse::Header<'a>]) -> Self {
         Headers(headers)
     }
-    pub fn parse<H: Header>(&self) -> Result<Option<H>, ParseError> {
+    pub fn parse<H: Header>(&self) -> Result<Option<H>, ParseValueError<H::Error>> {
         if let Some(v) = self.get(H::name()) {
             H::parse_value_bytes(v).map(Some)
         } else {
@@ -38,9 +36,66 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 pub trait Header: Sized + fmt::Display {
+    type Error;
     fn name() -> &'static str;
-    fn parse_value_bytes(value: &[u8]) -> Result<Self, ParseError> {
-        Self::parse_value_str(str::from_utf8(value)?)
+    fn parse_value_bytes(value: &[u8]) -> Result<Self, ParseValueError<Self::Error>> {
+        let s = str::from_utf8(value).map_err(|e| {
+                ParseValueError::InvalidUtf8 {
+                    name: Self::name(),
+                    reason: e,
+                }
+            })?;
+        Self::parse_value_str(s).map_err(|e| {
+            ParseValueError::Malformed {
+                name: Self::name(),
+                reason: e,
+            }
+        })
     }
-    fn parse_value_str(value: &str) -> Result<Self, ParseError>;
+    fn parse_value_str(value: &str) -> Result<Self, Self::Error>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseValueError<E> {
+    InvalidUtf8 {
+        name: &'static str,
+        reason: str::Utf8Error,
+    },
+    Malformed { name: &'static str, reason: E },
+}
+impl<E> fmt::Display for ParseValueError<E>
+    where E: fmt::Display
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ParseValueError::InvalidUtf8 { name, ref reason } => {
+                write!(f,
+                       "Invalid UTF-8 in HTTP header {:?}: reason={}",
+                       name,
+                       reason)
+            }
+            ParseValueError::Malformed { name, ref reason } => {
+                write!(f,
+                       "Malformed HTTP header value: name={:?}, reason={}",
+                       name,
+                       reason)
+            }
+        }
+    }
+}
+impl<E> error::Error for ParseValueError<E>
+    where E: error::Error
+{
+    fn description(&self) -> &str {
+        match *self {
+            ParseValueError::InvalidUtf8 { .. } => "Invalid UTF-8 in HTTP header value",
+            ParseValueError::Malformed { .. } => "Malformed HTTP header value",
+        }
+    }
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            ParseValueError::InvalidUtf8 { ref reason, .. } => Some(reason),
+            ParseValueError::Malformed { ref reason, .. } => Some(reason),
+        }
+    }
 }

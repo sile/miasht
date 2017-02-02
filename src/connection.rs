@@ -8,6 +8,12 @@ impl TransportStream for TcpStream {}
 
 pub type UnsafeHeader = httparse::Header<'static>;
 
+// TODO: read/writeをちゃんとハンドリング
+// (pipelineの場合でも正常に機能するように)
+//
+// 具体的には、フェーズがシフトする際には、
+// 未処理の部分は、前方に移動させて、
+// headをその末尾にセットするようにする。
 #[derive(Debug)]
 pub struct ByteBuffer {
     bytes: Vec<u8>,

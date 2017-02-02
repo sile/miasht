@@ -1,7 +1,7 @@
 use httparse;
 use futures::{Future, Poll, Async};
 
-use {Version, Error};
+use {Version, Error, ErrorKind};
 use status::RawStatus;
 use version;
 use header::Headers;
@@ -24,31 +24,27 @@ impl<T: TransportStream> Future for ReadResponse<T> {
         let mut connection = self.0.take().expect("Cannot poll ReadResponse twice");
         let (bytes, headers) = unsafe { connection.inner.bytes_and_headers() };
         let mut res = httparse::Response::new(headers);
-        match res.parse(bytes) {
-            Err(e) => Err(Error::ParseFailure(e)),
-            Ok(httparse::Status::Partial) => {
-                if connection.inner.buffer().is_full() {
-                    Err(Error::TooLargeNonBodyPart)
+        if let httparse::Status::Complete(body_offset) = res.parse(bytes)? {
+            connection.inner.buffer_mut().consume(body_offset);
+            let version = version::from_u8(res.version.unwrap());
+            let status = RawStatus::new(res.code.unwrap(), res.reason.unwrap());
+            Ok(Async::Ready(Response {
+                version: version,
+                status: status,
+                headers: Headers::new(res.headers),
+                connection: connection,
+            }))
+        } else {
+            if connection.inner.buffer().is_full() {
+                Err(ErrorKind::TooLargeNonBodyPart.into())
+            } else {
+                let filled = connection.inner.fill_buffer()?;
+                self.0 = Some(connection);
+                if filled {
+                    self.poll()
                 } else {
-                    let filled = connection.inner.fill_buffer().map_err(Error::Io)?;
-                    self.0 = Some(connection);
-                    if filled {
-                        self.poll()
-                    } else {
-                        Ok(Async::NotReady)
-                    }
+                    Ok(Async::NotReady)
                 }
-            }
-            Ok(httparse::Status::Complete(body_offset)) => {
-                connection.inner.buffer_mut().consume(body_offset);
-                let version = version::try_from_u8(res.version.unwrap())?;
-                let status = RawStatus::new(res.code.unwrap(), res.reason.unwrap());
-                Ok(Async::Ready(Response {
-                    version: version,
-                    status: status,
-                    headers: Headers::new(res.headers),
-                    connection: connection,
-                }))
             }
         }
     }

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::u64;
 
-use header::{Header, ParseError};
+use header::Header;
 
 /// `Content-Length` header.
 ///
@@ -23,10 +23,11 @@ impl ContentLength {
     }
 }
 impl Header for ContentLength {
+    type Error = ::std::num::ParseIntError;
     fn name() -> &'static str {
         "Content-Length"
     }
-    fn parse_value_str(value: &str) -> Result<Self, ParseError> {
+    fn parse_value_str(value: &str) -> Result<Self, Self::Error> {
         Ok(ContentLength(u64::from_str_radix(value, 10)?))
     }
 }

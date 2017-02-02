@@ -1,5 +1,4 @@
 extern crate clap;
-extern crate env_logger;
 extern crate fibers;
 extern crate futures;
 extern crate handy_async;
@@ -27,7 +26,7 @@ fn echo(_: (), connection: RawConnection) -> BoxFuture<(), ()> {
         .and_then(|request| {
             let body = request.into_body_reader();
             let buf = vec![0; 1024];
-            body.async_read(buf).map_err(|e| miasht::Error::Io(e.into_error()))
+            body.async_read(buf).map_err(|e| e.into_error().into())
         })
         .and_then(|(body, mut buf, size)| {
             buf.truncate(size);
@@ -37,7 +36,7 @@ fn echo(_: (), connection: RawConnection) -> BoxFuture<(), ()> {
             resp.add_header(&ContentLength(buf.len() as u64));
             resp.into_body_writer()
                 .async_write_all(buf)
-                .map_err(|e| miasht::Error::Io(e.into_error()))
+                .map_err(|e| e.into_error().into())
                 .and_then(|(s, _)| s.finish())
                 .then(|_| Ok(()))
         })

@@ -1,5 +1,4 @@
 extern crate clap;
-extern crate env_logger;
 extern crate fibers;
 extern crate futures;
 extern crate miasht;
@@ -8,7 +7,7 @@ extern crate handy_async;
 use clap::{App, Arg};
 use fibers::{Executor, InPlaceExecutor};
 use futures::Future;
-use miasht::Client;
+use miasht::{Client, Method};
 use handy_async::io::ReadFrom;
 use handy_async::pattern::read::{All, Utf8};
 
@@ -26,15 +25,13 @@ fn main() {
     let mut executor = InPlaceExecutor::new().unwrap();
     let monitor = executor.spawn_monitor(Client::new()
         .connect(addr)
-        .and_then(move |connection| connection.request(miasht::Method::Get, &path).finish())
+        .and_then(move |connection| connection.request(Method::Get, &path).finish())
         .and_then(|req| req.read_response())
         .and_then(|res| {
-            println!("RES: {}", res.status());
-            println!("HED: {:?}", res.headers());
             Utf8(All)
                 .read_from(res.into_body_reader())
                 .map(|(_, body)| body)
-                .map_err(|e| miasht::Error::Io(e.into_error()))
+                .map_err(|e| e.into_error().into())
         }));
     match executor.run_fiber(monitor).unwrap() {
         Ok(s) => println!("{}", s),

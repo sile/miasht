@@ -52,12 +52,11 @@ impl<C, T> Future for Finish<C, T>
         let mut inner = self.0.take().expect("Cannot poll Finish twice");
         match inner.flush() {
             Err(e) => {
-                if e.kind() == io::ErrorKind::WouldBlock {
-                    self.0 = Some(inner);
-                    Ok(Async::NotReady)
-                } else {
-                    Err(Error::Io(e))
+                if e.kind() != io::ErrorKind::WouldBlock {
+                    bail!(e);
                 }
+                self.0 = Some(inner);
+                Ok(Async::NotReady)
             }
             Ok(()) => Ok(Async::Ready(inner.inner)),
         }
