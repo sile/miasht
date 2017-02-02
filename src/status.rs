@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct RawStatus<'a> {
     code: u16,
     reason: &'a str,
@@ -93,6 +93,11 @@ impl<'a> fmt::Display for RawStatus<'a> {
 impl From<Status> for RawStatus<'static> {
     fn from(f: Status) -> Self {
         f.as_raw()
+    }
+}
+impl<'a> From<(u16, &'a str)> for RawStatus<'a> {
+    fn from((code, reason): (u16, &'a str)) -> Self {
+        RawStatus::new(code, reason)
     }
 }
 

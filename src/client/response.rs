@@ -1,7 +1,8 @@
 use httparse;
 use futures::{Future, Poll, Async};
 
-use {Version, Error, RawStatus};
+use {Version, Error};
+use status::RawStatus;
 use version;
 use header::Headers;
 use connection::TransportStream;

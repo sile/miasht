@@ -9,7 +9,8 @@ use futures::future::Either;
 pub use self::request::{Request, ReadRequest};
 pub use self::response::Response;
 
-use {Result, Error, Status, TransportStream, Version};
+use {Result, Error, TransportStream, Version};
+use status::RawStatus;
 use connection::{self, ByteBuffer, HeaderBuffer};
 
 mod request;
@@ -65,8 +66,10 @@ impl<T: TransportStream> Connection<T> {
     pub fn read_request(self) -> ReadRequest<T> {
         ReadRequest::new(self)
     }
-    pub fn response(self, status: Status) -> Response<T> {
-        Response::new(self, status)
+    pub fn response<'a, S>(self, status: S) -> Response<T>
+        where S: Into<RawStatus<'a>>
+    {
+        Response::new(self, status.into())
     }
 }
 impl<T> AsMut<connection::Connection<T>> for Connection<T> {
@@ -94,7 +97,7 @@ impl ServerHandle {
         let future = {
             let spawner = spawner.clone();
             TcpListener::bind(bind_addr)
-                .map_err(|e| Error::BindFailure(e))
+                .map_err(|e| Error::Io(e))
                 .and_then(move |mut listener| if let Err(e) =
                     server.before_listen(&mut listener) {
                     Either::A(futures::failed(e))

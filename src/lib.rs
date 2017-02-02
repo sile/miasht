@@ -9,7 +9,7 @@ pub use client::Client;
 pub use server::Server;
 pub use error::Error;
 pub use method::Method;
-pub use status::{Status, RawStatus};
+pub use status::Status;
 pub use version::Version;
 pub use connection::TransportStream;
 
@@ -17,10 +17,10 @@ pub mod builtin;
 pub mod header;
 pub mod client;
 pub mod server;
+pub mod status;
 pub mod io;
 mod error;
 mod method;
-mod status;
 mod version;
 mod connection;
 

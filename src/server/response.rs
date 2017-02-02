@@ -1,6 +1,7 @@
 use std::io::Write;
 
-use {Status, TransportStream};
+use TransportStream;
+use status::RawStatus;
 use header::Header;
 use io::{BodyWriter, Finish};
 use super::Connection;
@@ -8,7 +9,7 @@ use super::Connection;
 #[derive(Debug)]
 pub struct Response<T>(Connection<T>);
 impl<T: TransportStream> Response<T> {
-    pub fn new(mut connection: Connection<T>, status: Status) -> Self {
+    pub fn new(mut connection: Connection<T>, status: RawStatus) -> Self {
         connection.inner.reset();
         let _ = write!(connection.inner.buffer_mut(),
                        "{} {}\r\n",

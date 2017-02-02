@@ -9,11 +9,9 @@ use header;
 pub enum Error {
     UnknownMethod(String),
     UnknownVersion(u8),
+    TooLargeNonBodyPart,
     ParseFailure(httparse::Error),
     HeaderParse(header::ParseError),
-    TooLargeRequestHeaderPart,
-    TooLargeNonBodyPart,
     ServerAborted,
     Io(io::Error),
-    BindFailure(io::Error),
 }
