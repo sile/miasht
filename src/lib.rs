@@ -9,6 +9,7 @@ pub use client::Client;
 pub use server::Server;
 pub use method::Method;
 pub use status::Status;
+pub use traits::Metadata;
 pub use version::Version;
 pub use connection::TransportStream;
 
@@ -17,6 +18,7 @@ pub mod header;
 pub mod client;
 pub mod server;
 pub mod status;
+mod traits;
 mod method;
 mod version;
 mod connection;
@@ -65,9 +67,9 @@ impl<E> From<header::ParseValueError<E>> for Error
 }
 impl Error {
     pub fn with_status<E>(status: Status, error: E) -> Self
-        where E: std::error::Error + Send + Sync + 'static
+        where E: Into<Box<std::error::Error + Send + Sync>>
     {
-        ErrorKind::WithStatus(status, Box::new(error)).into()
+        ErrorKind::WithStatus(status, error.into()).into()
     }
     pub fn proposed_status(&self) -> Status {
         match *self.kind() {

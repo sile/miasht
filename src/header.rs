@@ -27,10 +27,6 @@ impl<'a> Headers<'a> {
     }
 }
 
-pub trait GetHeaders {
-    fn get_headers(&self) -> &Headers;
-}
-
 #[derive(Debug)]
 pub struct Iter<'a>(slice::Iter<'a, httparse::Header<'a>>);
 impl<'a> Iterator for Iter<'a> {
@@ -70,15 +66,14 @@ pub enum ParseValueError<E> {
     Malformed { name: &'static str, reason: E },
 }
 impl<E> ParseValueError<E>
-    where E: error::Error + Send + Sync + 'static
+    where E: Into<Box<error::Error + Send + Sync>>
 {
     pub fn boxed(self) -> ParseValueError<Box<error::Error + Send + Sync>> {
         match self {
             ParseValueError::Malformed { name, reason } => {
-                let reason: Box<error::Error + Send + Sync> = Box::new(reason);
                 ParseValueError::Malformed {
                     name: name,
-                    reason: reason,
+                    reason: reason.into(),
                 }
             }
             ParseValueError::InvalidUtf8 { name, reason } => {

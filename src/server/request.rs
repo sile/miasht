@@ -2,8 +2,10 @@ use std::io::{self, Read, BufRead};
 use httparse;
 use futures::{Future, Poll, Async};
 
-use {Error, ErrorKind, Version, Method, TransportStream};
-use header::{Headers, GetHeaders};
+use {Error, ErrorKind, Version, Method};
+use {Metadata, TransportStream};
+use status::RawStatus;
+use header::Headers;
 use super::Connection;
 
 #[derive(Debug)]
@@ -71,11 +73,6 @@ impl<T> Request<T> {
         self.connection
     }
 }
-impl<T> GetHeaders for Request<T> {
-    fn get_headers(&self) -> &Headers {
-        self.headers()
-    }
-}
 impl<T: TransportStream> Read for Request<T> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         if !self.connection.inner.buffer.is_empty() {
@@ -83,5 +80,19 @@ impl<T: TransportStream> Read for Request<T> {
         } else {
             self.connection.inner.stream.read(buf)
         }
+    }
+}
+impl<T> Metadata for Request<T> {
+    fn version(&self) -> Version {
+        self.version
+    }
+    fn method(&self) -> Option<Method> {
+        Some(self.method)
+    }
+    fn status(&self) -> Option<&RawStatus> {
+        None
+    }
+    fn headers(&self) -> &Headers {
+        &self.headers
     }
 }
