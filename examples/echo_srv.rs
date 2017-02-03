@@ -6,10 +6,12 @@ extern crate miasht;
 
 use fibers::{Executor, ThreadPoolExecutor};
 use futures::{Future, BoxFuture};
-use handy_async::io::{AsyncRead, AsyncWrite};
+use handy_async::io::{AsyncWrite, ReadFrom};
+use handy_async::pattern::read::All;
 use miasht::{Server, Status};
 use miasht::builtin::servers::{SimpleHttpServer, RawConnection};
 use miasht::builtin::headers::ContentLength;
+use miasht::builtin::io::BodyReader;
 
 fn main() {
     let mut executor = ThreadPoolExecutor::new().unwrap();
@@ -24,12 +26,11 @@ fn main() {
 fn echo(_: (), connection: RawConnection) -> BoxFuture<(), ()> {
     connection.read_request()
         .and_then(|request| {
-            let buf = vec![0; 1024];
-            request.async_read(buf).map_err(|e| e.into_error().into())
+            futures::done(BodyReader::new(request))
+                .and_then(|reader| All.read_from(reader).map_err(|e| e.into_error().into()))
         })
-        .and_then(|(body, mut buf, size)| {
-            buf.truncate(size);
-            let connection = body.finish();
+        .and_then(|(request, buf)| {
+            let connection = request.into_inner().finish();
 
             let mut builder = connection.build_response(Status::Ok);
             builder.add_header(&ContentLength(buf.len() as u64));

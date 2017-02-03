@@ -71,12 +71,14 @@ impl Error {
     {
         ErrorKind::WithStatus(status, error.into()).into()
     }
-    pub fn proposed_status(&self) -> Status {
+    pub fn proposed_status(&self) -> Option<Status> {
         match *self.kind() {
+            ErrorKind::Parse(_) |
             ErrorKind::UnknownMethod(_) |
-            ErrorKind::WrongHeader(_) => Status::BadRequest,
-            ErrorKind::WithStatus(status, _) => status,
-            _ => Status::InternalServerError,
+            ErrorKind::WrongHeader(_) => Some(Status::BadRequest),
+            ErrorKind::WithStatus(status, _) => Some(status),
+            ErrorKind::ServerAborted => Some(Status::InternalServerError),
+            _ => None
         }
     }
 }

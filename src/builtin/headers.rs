@@ -3,8 +3,8 @@ use std::u64;
 use std::io::{self, Write};
 use std::ascii::AsciiExt;
 
+use {Error, ErrorKind, Status};
 use header::Header;
-use super::NoError;
 
 macro_rules! impl_display {
     ($header:ident) => {
@@ -63,23 +63,11 @@ impl<'a> Header<'a> for ContentLength {
 impl_display!(ContentLength);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TransferEncoding<'a> {
+pub enum TransferEncoding {
     Chunked,
-    Other(&'a str),
 }
-impl<'a> TransferEncoding<'a> {
-    pub fn chunked_or_else<F, E>(&self, f: F) -> Result<(), E>
-        where F: FnOnce(&'a str) -> E
-    {
-        if let TransferEncoding::Other(token) = *self {
-            Err(f(token))
-        } else {
-            Ok(())
-        }
-    }
-}
-impl<'a> Header<'a> for TransferEncoding<'a> {
-    type Error = NoError;
+impl<'a> Header<'a> for TransferEncoding {
+    type Error = Error;
     fn name() -> &'static str {
         "Transfer-Encoding"
     }
@@ -87,14 +75,14 @@ impl<'a> Header<'a> for TransferEncoding<'a> {
         if value.eq_ignore_ascii_case("chunked") {
             Ok(TransferEncoding::Chunked)
         } else {
-            Ok(TransferEncoding::Other(value))
+            let message = format!("Cannot handle transfer coding {:?}", value);
+            Err(ErrorKind::WithStatus(Status::NotImplemented, message.into()).into())
         }
     }
     fn write_value<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         match *self {
             TransferEncoding::Chunked => write!(writer, "chunked"),
-            TransferEncoding::Other(s) => write!(writer, "{}", s),
         }
     }
 }
-impl_display!(TransferEncoding<'a>);
+impl_display!(TransferEncoding);
