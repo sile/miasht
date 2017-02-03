@@ -27,8 +27,10 @@ impl<T: TransportStream> RequestBuilder<T> {
         let _ = write!(self.0.inner.buffer, "\r\n");
         self
     }
-    pub fn add_header<H: Header>(&mut self, header: &H) -> &mut Self {
-        let _ = write!(self.0.inner.buffer, "{}\r\n", header);
+    pub fn add_header<'a, H: Header<'a>>(&mut self, header: &H) -> &mut Self {
+        let _ = write!(self.0.inner.buffer, "{}: ", H::name());
+        let _ = header.write_value(&mut self.0.inner.buffer);
+        let _ = write!(self.0.inner.buffer, "\r\n");
         self
     }
     pub fn finish(mut self) -> Request<T> {

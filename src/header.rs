@@ -1,3 +1,4 @@
+use std::io::{self, Write};
 use std::fmt;
 use std::str;
 use std::error;
@@ -11,7 +12,7 @@ impl<'a> Headers<'a> {
     pub fn new(headers: &'a [httparse::Header<'a>]) -> Self {
         Headers(headers)
     }
-    pub fn parse<H: Header>(&self) -> Result<Option<H>, ParseValueError<H::Error>> {
+    pub fn parse<H: Header<'a>>(&'a self) -> Result<Option<H>, ParseValueError<H::Error>> {
         if let Some(v) = self.get(H::name()) {
             H::parse_value_bytes(v).map(Some)
         } else {
@@ -39,10 +40,11 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
-pub trait Header: Sized + fmt::Display {
+pub trait Header<'a>: Sized {
     type Error;
     fn name() -> &'static str;
-    fn parse_value_bytes(value: &[u8]) -> Result<Self, ParseValueError<Self::Error>> {
+    fn write_value<W: Write>(&self, writer: &mut W) -> io::Result<()>;
+    fn parse_value_bytes(value: &'a [u8]) -> Result<Self, ParseValueError<Self::Error>> {
         let s = str::from_utf8(value).map_err(|e| {
                 ParseValueError::InvalidUtf8 {
                     name: Self::name(),
@@ -56,7 +58,7 @@ pub trait Header: Sized + fmt::Display {
             }
         })
     }
-    fn parse_value_str(value: &str) -> Result<Self, Self::Error>;
+    fn parse_value_str(value: &'a str) -> Result<Self, Self::Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
