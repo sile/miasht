@@ -40,9 +40,15 @@ error_chain! {
         WrongHeader(error: header::ParseValueError<Box<std::error::Error + Send + Sync>>) {
             description("Wrong HTTP header")
             display("Wrong HTTP header: {}", error)
+            cause(error)    
         }
         Timeout {
             description("Timed out")
+        }
+        WithStatus(status: Status, error: Box<std::error::Error + Send + Sync>) {
+            description(error.description())
+            display("{} (status={:?})", error, status.to_string())
+            cause(error)
         }
     }
     foreign_links {
@@ -55,6 +61,21 @@ impl<E> From<header::ParseValueError<E>> for Error
 {
     fn from(f: header::ParseValueError<E>) -> Self {
         ErrorKind::WrongHeader(f.boxed()).into()
+    }
+}
+impl Error {
+    pub fn with_status<E>(status: Status, error: E) -> Self
+        where E: std::error::Error + Send + Sync + 'static
+    {
+        ErrorKind::WithStatus(status, Box::new(error)).into()
+    }
+    pub fn proposed_status(&self) -> Status {
+        match *self.kind() {
+            ErrorKind::UnknownMethod(_) |
+            ErrorKind::WrongHeader(_) => Status::BadRequest,
+            ErrorKind::WithStatus(status, _) => status,
+            _ => Status::InternalServerError,
+        }
     }
 }
 

@@ -1,12 +1,14 @@
 #![allow(unused_imports)]
 #![allow(unused_variables)]
-use std::io::{self, Read};
+use std::fmt;
+use std::io::{self, Read, Take};
 
-use TransportStream;
+use {Result, TransportStream};
 use header::{Headers, GetHeaders};
 use client::Response;
+use super::headers::ContentLength;
 
-// TODO: timeout, gzip, max-length(Read::take)
+// TODO: timeout, gzip
 
 #[derive(Debug)]
 pub enum BodyReader<R> {
@@ -15,10 +17,14 @@ pub enum BodyReader<R> {
     Raw(R),
 }
 impl<R> BodyReader<R>
-    where R: GetHeaders + TransportStream
+    where R: TransportStream + GetHeaders
 {
-    pub fn new(inner: R) -> Self {
-        panic!()
+    pub fn new(inner: R) -> Result<Self> {
+        if let Some(h) = inner.get_headers().parse::<ContentLength>()? {
+            Ok(BodyReader::Fixed(FixedLengthBodyReader::new(inner, h.len())))
+        } else {
+            Ok(BodyReader::Raw(inner))
+        }
     }
 }
 impl<R> BodyReader<R> {
@@ -38,11 +44,19 @@ impl<R> ChunkedBodyReader<R> {
         self.0
     }
 }
-
-#[derive(Debug)]
-pub struct FixedLengthBodyReader<R>(R);
+pub struct FixedLengthBodyReader<R>(Take<R>);
+impl<R: Read> FixedLengthBodyReader<R> {
+    pub fn new(inner: R, limit: u64) -> Self {
+        FixedLengthBodyReader(inner.take(limit))
+    }
+}
 impl<R> FixedLengthBodyReader<R> {
     pub fn into_inner(self) -> R {
-        self.0
+        self.0.into_inner()
+    }
+}
+impl<R> fmt::Debug for FixedLengthBodyReader<R> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "FixedLengthBodyReader(_)")
     }
 }
