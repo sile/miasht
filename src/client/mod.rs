@@ -7,7 +7,7 @@ pub use self::response::{Response, ReadResponse};
 
 use {Error, Method, Version};
 use defaults;
-use connection::{self, ByteBuffer, HeaderBuffer, TransportStream};
+use connection::{self, TransportStream};
 
 mod request;
 mod response;
@@ -62,9 +62,11 @@ pub struct Connection<T> {
 }
 impl<T: TransportStream> Connection<T> {
     fn new(stream: T, client: &Client) -> Self {
-        let bytes = ByteBuffer::new(client.min_buffer_size, client.max_buffer_size);
-        let headers = HeaderBuffer::new(client.max_response_header_count);
-        let inner = connection::Connection::new(stream, bytes, headers);
+        let max_header_count = client.max_response_header_count;
+        let inner = connection::Connection::new(stream,
+                                                client.min_buffer_size,
+                                                client.max_buffer_size,
+                                                max_header_count);
         Connection {
             inner: inner,
             version: client.version,

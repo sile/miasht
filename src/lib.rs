@@ -20,6 +20,7 @@ pub mod status;
 mod method;
 mod version;
 mod connection;
+mod unsafe_types;
 
 pub mod defaults {
     pub const MAX_HEADER_COUNT: usize = 32;
@@ -29,9 +30,6 @@ pub mod defaults {
 
 error_chain! {
     errors {
-        TooLargeNonBodyPart {
-            description("Too large HTTP non-body part")
-        }
         ServerAborted {
             description("HTTP server is unintentionally exited")
         }
@@ -42,6 +40,9 @@ error_chain! {
         WrongHeader(error: header::ParseValueError<Box<std::error::Error + Send + Sync>>) {
             description("Wrong HTTP header")
             display("Wrong HTTP header: {}", error)
+        }
+        Timeout {
+            description("Timed out")
         }
     }
     foreign_links {

@@ -1,10 +1,12 @@
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 use std::io::{self, Read};
 
 use TransportStream;
 use header::{Headers, GetHeaders};
 use client::Response;
 
-// TODO: timeout, gzip, max-length
+// TODO: timeout, gzip, max-length(Read::take)
 
 #[derive(Debug)]
 pub enum BodyReader<R> {

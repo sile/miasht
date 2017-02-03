@@ -1,4 +1,4 @@
-use std::io::{self, Read};
+use std::io::{self, Read, BufRead};
 use httparse;
 use futures::{Future, Poll, Async};
 
@@ -10,7 +10,7 @@ use super::Connection;
 pub struct ReadRequest<T>(Option<Connection<T>>);
 impl<T: TransportStream> ReadRequest<T> {
     pub fn new(mut connection: Connection<T>) -> Self {
-        connection.inner.reset();
+        connection.inner.buffer.enter_read_phase();
         ReadRequest(Some(connection))
     }
 }
@@ -19,10 +19,10 @@ impl<T: TransportStream> Future for ReadRequest<T> {
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let mut connection = self.0.take().expect("Cannot poll ReadRequest twice");
-        let (bytes, headers) = unsafe { connection.inner.bytes_and_headers() };
+        let (bytes, headers) = unsafe { connection.inner.buffer_and_headers() };
         let mut req = httparse::Request::new(headers);
         if let httparse::Status::Complete(body_offset) = req.parse(bytes)? {
-            connection.inner.buffer_mut().consume(body_offset);
+            connection.inner.buffer.consume(body_offset);
             let version = if req.version.unwrap() == 0 {
                 Version::Http1_0
             } else {
@@ -38,16 +38,12 @@ impl<T: TransportStream> Future for ReadRequest<T> {
                 connection: connection,
             }))
         } else {
-            if connection.inner.buffer().is_full() {
-                Err(ErrorKind::TooLargeNonBodyPart.into())
+            let filled = connection.inner.fill_buffer()?;
+            self.0 = Some(connection);
+            if filled {
+                self.poll()
             } else {
-                let filled = connection.inner.fill_buffer()?;
-                self.0 = Some(connection);
-                if filled {
-                    self.poll()
-                } else {
-                    Ok(Async::NotReady)
-                }
+                Ok(Async::NotReady)
             }
         }
     }
@@ -82,10 +78,10 @@ impl<T> GetHeaders for Request<T> {
 }
 impl<T: TransportStream> Read for Request<T> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if !self.connection.inner.buffer().is_empty() {
-            self.connection.inner.buffer_mut().read(buf)
+        if !self.connection.inner.buffer.is_empty() {
+            self.connection.inner.buffer.read(buf)
         } else {
-            self.connection.inner.stream_mut().read(buf)
+            self.connection.inner.stream.read(buf)
         }
     }
 }

@@ -11,7 +11,7 @@ pub use self::response::{Response, ResponseBuilder};
 
 use {Result, Error, ErrorKind, TransportStream, Version};
 use status::RawStatus;
-use connection::{self, ByteBuffer, HeaderBuffer};
+use connection;
 
 mod request;
 mod response;
@@ -61,9 +61,8 @@ impl<T: TransportStream> Connection<T> {
                max_buffer_size: usize,
                max_header_count: usize)
                -> Self {
-        let buffer = ByteBuffer::new(min_buffer_size, max_buffer_size);
-        let headers = HeaderBuffer::new(max_header_count);
-        let inner = connection::Connection::new(stream, buffer, headers);
+        let inner =
+            connection::Connection::new(stream, min_buffer_size, max_buffer_size, max_header_count);
         Connection {
             inner: inner,
             version: Version::default(),
