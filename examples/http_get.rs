@@ -2,14 +2,13 @@ extern crate clap;
 extern crate fibers;
 extern crate futures;
 extern crate miasht;
-extern crate handy_async;
 
 use clap::{App, Arg};
 use fibers::{Executor, InPlaceExecutor};
 use futures::Future;
 use miasht::{Client, Method};
-use handy_async::io::ReadFrom;
-use handy_async::pattern::read::{All, Utf8};
+use miasht::builtin::io::BodyReader;
+use miasht::builtin::FutureExt;
 
 fn main() {
     let matches = App::new("http_get")
@@ -28,10 +27,9 @@ fn main() {
         .and_then(move |connection| connection.build_request(Method::Get, &path).finish())
         .and_then(|req| req.read_response())
         .and_then(|res| {
-            Utf8(All)
-                .read_from(res)
+            futures::done(BodyReader::new(res))
+                .and_then(|r| r.read_all_str())
                 .map(|(_, body)| body)
-                .map_err(|e| e.into_error().into())
         }));
     match executor.run_fiber(monitor).unwrap() {
         Ok(s) => println!("{}", s),

@@ -1,9 +1,12 @@
 use std::fmt;
 use std::error;
 
+pub use self::futures::FutureExt;
+
+pub mod io;
 pub mod headers;
 pub mod servers;
-pub mod io;
+pub mod futures;
 
 #[derive(Debug)]
 pub struct NoError(());
