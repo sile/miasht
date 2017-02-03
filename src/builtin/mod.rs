@@ -6,6 +6,7 @@ pub use self::futures::FutureExt;
 pub use self::servers::SimpleHttpServer;
 
 pub mod io;
+pub mod router;
 pub mod headers;
 pub mod servers;
 pub mod futures;

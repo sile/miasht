@@ -94,4 +94,7 @@ impl<T> Metadata for Response<T> {
     fn method(&self) -> Option<Method> {
         None
     }
+    fn path(&self) -> Option<&str> {
+        None
+    }
 }

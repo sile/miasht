@@ -7,6 +7,7 @@ pub trait Metadata {
     fn headers(&self) -> &Headers;
     fn status(&self) -> Option<&RawStatus>;
     fn method(&self) -> Option<Method>;
+    fn path(&self) -> Option<&str>;
     fn is_request(&self) -> bool {
         self.method().is_some()
     }

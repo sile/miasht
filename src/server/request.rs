@@ -35,6 +35,7 @@ impl<T: TransportStream> Future for ReadRequest<T> {
                     .ok_or_else(|| ErrorKind::UnknownMethod(req.method.unwrap().to_string()))?;
             Ok(Async::Ready(Request {
                 version: version,
+                path: req.path.unwrap(),
                 method: method,
                 headers: Headers::new(req.headers),
                 connection: connection,
@@ -54,6 +55,7 @@ impl<T: TransportStream> Future for ReadRequest<T> {
 #[derive(Debug)]
 pub struct Request<T> {
     version: Version,
+    path: &'static str,
     method: Method,
     headers: Headers<'static>,
     connection: Connection<T>,
@@ -61,6 +63,9 @@ pub struct Request<T> {
 impl<T> Request<T> {
     pub fn version(&self) -> Version {
         self.version
+    }
+    pub fn path(&self) -> &str {
+        self.path
     }
     pub fn method(&self) -> Method {
         self.method
@@ -88,6 +93,9 @@ impl<T> Metadata for Request<T> {
     }
     fn method(&self) -> Option<Method> {
         Some(self.method)
+    }
+    fn path(&self) -> Option<&str> {
+        Some(self.path)
     }
     fn status(&self) -> Option<&RawStatus> {
         None
