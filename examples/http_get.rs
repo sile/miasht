@@ -5,10 +5,9 @@ extern crate miasht;
 
 use clap::{App, Arg};
 use fibers::{Executor, InPlaceExecutor};
-use futures::Future;
+use futures::{Future, IntoFuture};
 use miasht::{Client, Method};
-use miasht::builtin::io::BodyReader;
-use miasht::builtin::FutureExt;
+use miasht::builtin::{IoExt, FutureExt};
 
 fn main() {
     let matches = App::new("http_get")
@@ -27,7 +26,8 @@ fn main() {
         .and_then(move |connection| connection.build_request(Method::Get, &path).finish())
         .and_then(|req| req.read_response())
         .and_then(|res| {
-            futures::done(BodyReader::new(res))
+            res.into_body_reader()
+                .into_future()
                 .and_then(|r| r.read_all_str())
                 .map(|(_, body)| body)
         }));

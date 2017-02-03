@@ -1,7 +1,9 @@
 use std::fmt;
 use std::error;
 
+pub use self::io::IoExt;
 pub use self::futures::FutureExt;
+pub use self::servers::SimpleHttpServer;
 
 pub mod io;
 pub mod headers;

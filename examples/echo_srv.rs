@@ -4,12 +4,11 @@ extern crate futures;
 extern crate miasht;
 
 use fibers::{Executor, ThreadPoolExecutor};
-use futures::{Future, BoxFuture};
+use futures::{Future, BoxFuture, IntoFuture};
 use miasht::{Server, Status};
 use miasht::builtin::servers::{SimpleHttpServer, RawConnection};
 use miasht::builtin::headers::ContentLength;
-use miasht::builtin::io::BodyReader;
-use miasht::builtin::FutureExt;
+use miasht::builtin::{IoExt, FutureExt};
 
 fn main() {
     let mut executor = ThreadPoolExecutor::new().unwrap();
@@ -24,15 +23,14 @@ fn main() {
 fn echo(_: (), connection: RawConnection) -> BoxFuture<(), ()> {
     connection.read_request()
         .and_then(|request| {
-            futures::done(BodyReader::new(request)).and_then(|r| r.read_all_bytes())
+            request.into_body_reader().into_future().and_then(|r| r.read_all_bytes())
         })
         .and_then(|(request, buf)| {
             let connection = request.into_inner().finish();
 
-            let mut builder = connection.build_response(Status::Ok);
-            builder.add_header(&ContentLength(buf.len() as u64));
-            let response = builder.finish();
-            response.write_all_bytes(buf).then(|_| Ok(()))
+            let mut response = connection.build_response(Status::Ok);
+            response.add_header(&ContentLength(buf.len() as u64));
+            response.finish().write_all_bytes(buf).then(|_| Ok(()))
         })
         .map_err(|e| {
             println!("Error: {:?}", e);

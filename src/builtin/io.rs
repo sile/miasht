@@ -6,6 +6,20 @@ use httparse;
 use {Result, Metadata};
 use super::headers::{ContentLength, TransferEncoding};
 
+pub trait IoExt: Sized {
+    fn into_body_reader(self) -> Result<BodyReader<Self>>
+        where Self: Read + Metadata
+    {
+        BodyReader::new(self)
+    }
+    fn max_length(self, max_len: u64) -> MaxLength<Self>
+        where Self: Read
+    {
+        MaxLength::new(self, max_len)
+    }
+}
+impl<T: Sized> IoExt for T {}
+
 pub enum BodyReader<R> {
     Chunked(ChunkedBodyReader<R>),
     FixedLength(Take<R>),
@@ -120,6 +134,38 @@ impl<R: Read> Read for ChunkedBodyReader<R> {
                     }
                 }
             }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct MaxLength<R> {
+    inner: R,
+    read_bytes: u64,
+    max_bytes: u64,
+}
+impl<R: Read> MaxLength<R> {
+    pub fn new(inner: R, max_len: u64) -> Self {
+        MaxLength {
+            inner: inner,
+            read_bytes: 0,
+            max_bytes: max_len,
+        }
+    }
+    pub fn into_inner(self) -> R {
+        self.inner
+    }
+}
+impl<R: Read> Read for MaxLength<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if self.read_bytes == self.max_bytes {
+            let message = format!("Maximum length ({} bytes) exceeded", self.max_bytes);
+            Err(io::Error::new(io::ErrorKind::InvalidData, message))
+        } else {
+            let size = cmp::min(buf.len() as u64, self.max_bytes - self.read_bytes) as usize;
+            let read_size = self.inner.read(&mut buf[..size])?;
+            self.read_bytes += read_size as u64;
+            Ok(read_size)
         }
     }
 }
