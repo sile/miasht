@@ -11,8 +11,9 @@ use {Error, ErrorKind};
 use ResultExt;
 
 pub trait FutureExt: Sized {
-    fn timeout(self, delay_from_now: time::Duration) -> Timeout<Self>
-        where Self: Future<Error = Error>
+    fn timeout<E>(self, delay_from_now: time::Duration) -> Timeout<Self>
+        where Self: Future<Error = E>,
+              E: From<Error>
     {
         Timeout::new(self, delay_from_now)
     }
@@ -85,8 +86,9 @@ pub struct Timeout<F> {
     future: F,
     timeout: timer::Timeout,
 }
-impl<F, T> Timeout<F>
-    where F: Future<Item = T, Error = Error>
+impl<F, T, E> Timeout<F>
+    where F: Future<Item = T, Error = E>,
+          E: From<Error>
 {
     pub fn new(future: F, delay_from_now: time::Duration) -> Self {
         let timeout = timer::timeout(delay_from_now);
@@ -96,15 +98,16 @@ impl<F, T> Timeout<F>
         }
     }
 }
-impl<F, T> Future for Timeout<F>
-    where F: Future<Item = T, Error = Error>
+impl<F, T, E> Future for Timeout<F>
+    where F: Future<Item = T, Error = E>,
+          E: From<Error>
 {
     type Item = T;
-    type Error = Error;
+    type Error = E;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let Async::Ready(()) =
-               self.timeout.poll().map_err(|_| "Timeout object unexpectedly aborted")? {
-            Err(ErrorKind::Timeout.into())
+               self.timeout.poll().map_err(|_| "Timeout object unexpectedly aborted".into())? {
+                   Err(E::from(ErrorKind::Timeout.into()))
         } else {
             self.future.poll()
         }
