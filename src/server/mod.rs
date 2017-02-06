@@ -162,7 +162,7 @@ impl<S, T> Future for ServerLoop<S, T>
     type Item = ();
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        'toplevel: loop {
+        loop {
             match self.command_rx.poll().expect("unreachable") {
                 Async::Ready(None) => return Ok(Async::Ready(())),
                 Async::Ready(Some(command)) => {
@@ -174,29 +174,22 @@ impl<S, T> Future for ServerLoop<S, T>
                 }
                 Async::NotReady => {}
             }
-            // FIXME: delete below loop in fibers-v0.1.3
-            for _ in 0..2 {
-                match self.incoming.poll()? {
-                    Async::NotReady => {
-                        // return Ok(Async::NotReady);
-                    }
-                    Async::Ready(None) => unreachable!(),
-                    Async::Ready(Some((socket, address))) => {
-                        let (socket_handler, connection_handler) = self.server.create_handlers();
-                        self.spawner.spawn(socket.map_err(Error::from)
-                            .and_then(move |socket| socket_handler.handle(socket))
-                            .then(move |result| match result {
-                                Err(e) => {
-                                    connection_handler.on_error(address, e);
-                                    Either::A(futures::failed(()))
-                                }
-                                Ok(connection) => Either::B(connection_handler.handle(connection)),
-                            }));
-                        continue 'toplevel;
-                    }
+            match self.incoming.poll()? {
+                Async::NotReady => return Ok(Async::NotReady),
+                Async::Ready(None) => unreachable!(),
+                Async::Ready(Some((socket, address))) => {
+                    let (socket_handler, connection_handler) = self.server.create_handlers();
+                    self.spawner.spawn(socket.map_err(Error::from)
+                        .and_then(move |socket| socket_handler.handle(socket))
+                        .then(move |result| match result {
+                            Err(e) => {
+                                connection_handler.on_error(address, e);
+                                Either::A(futures::failed(()))
+                            }
+                            Ok(connection) => Either::B(connection_handler.handle(connection)),
+                        }));
                 }
             }
-            return Ok(Async::NotReady);
         }
     }
 }
