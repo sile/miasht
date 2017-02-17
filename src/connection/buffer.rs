@@ -66,7 +66,12 @@ impl Buffer {
     pub fn enter_write_phase(&mut self) {
         if let Phase::Read { head, tail } = self.phase {
             let read_tail = tail - head;
+
+            // Shift to front
+            let len = self.bytes.len();
             self.bytes.drain(..read_tail);
+            self.bytes.resize(len, 0);
+
             self.phase = Phase::Write {
                 read_tail: read_tail,
                 head: read_tail,
