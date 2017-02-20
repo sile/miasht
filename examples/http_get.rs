@@ -4,7 +4,7 @@ extern crate futures;
 extern crate miasht;
 
 use clap::{App, Arg};
-use fibers::{Executor, InPlaceExecutor};
+use fibers::{Executor, InPlaceExecutor, Spawn};
 use futures::{Future, IntoFuture};
 use miasht::{Client, Method};
 use miasht::builtin::{IoExt, FutureExt};
