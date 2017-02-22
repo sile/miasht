@@ -76,6 +76,9 @@ impl<T: TransportStream> Connection<T> {
     {
         response::builder(self, status.into())
     }
+    pub fn into_raw_stream(self) -> T {
+        self.inner.stream
+    }
 }
 impl<T> AsMut<connection::Connection<T>> for Connection<T> {
     fn as_mut(&mut self) -> &mut connection::Connection<T> {
