@@ -3,7 +3,7 @@ use std::u64;
 use std::io::{self, Write};
 use std::ascii::AsciiExt;
 
-use {Error, ErrorKind, Status};
+use {Error, Status};
 use header::Header;
 
 macro_rules! impl_display {
@@ -72,12 +72,11 @@ impl<'a> Header<'a> for TransferEncoding {
         "Transfer-Encoding"
     }
     fn parse_value_str(value: &'a str) -> Result<Self, Self::Error> {
-        if value.eq_ignore_ascii_case("chunked") {
-            Ok(TransferEncoding::Chunked)
-        } else {
-            let message = format!("Cannot handle transfer coding {:?}", value);
-            Err(ErrorKind::WithStatus(Status::NotImplemented, message.into()).into())
-        }
+        track_assert!(value.eq_ignore_ascii_case("chunked"),
+                      Status::NotImplemented,
+                      "Cannot handle transfer coding {:?}",
+                      value);
+        Ok(TransferEncoding::Chunked)
     }
     fn write_value<W: Write>(&self, writer: &mut W) -> io::Result<()> {
         match *self {

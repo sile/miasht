@@ -5,11 +5,12 @@ use fibers::net::{TcpListener, TcpStream};
 use fibers::net::streams::Incoming;
 use futures::{self, Future, Stream, Poll, Async};
 use futures::future::Either;
+use trackable::error::ErrorKindExt;
 
 pub use self::request::{Request, ReadRequest};
 pub use self::response::{Response, ResponseBuilder};
 
-use {Result, Error, ErrorKind, TransportStream, Version};
+use {Result, Error, TransportStream, Version, Status};
 use status::RawStatus;
 use connection;
 
@@ -104,20 +105,18 @@ impl ServerHandle {
         let (command_tx, command_rx) = mpsc::channel();
         let future = {
             let spawner = spawner.clone();
-            TcpListener::bind(bind_addr)
-                .map_err(Error::from)
-                .and_then(move |mut listener| if let Err(e) =
-                    server.before_listen(&mut listener) {
-                    Either::A(futures::failed(e))
-                } else {
-                    let server_loop = ServerLoop {
-                        server: server,
-                        spawner: spawner,
-                        incoming: listener.incoming(),
-                        command_rx: command_rx,
-                    };
-                    Either::B(server_loop)
-                })
+            track_err!(TcpListener::bind(bind_addr)).and_then(move |mut listener| if let Err(e) =
+                server.before_listen(&mut listener) {
+                Either::A(futures::failed(e))
+            } else {
+                let server_loop = ServerLoop {
+                    server: server,
+                    spawner: spawner,
+                    incoming: listener.incoming(),
+                    command_rx: command_rx,
+                };
+                Either::B(server_loop)
+            })
         };
         let monitor = spawner.spawn_monitor(future);
         ServerHandle {
@@ -140,7 +139,10 @@ impl Future for JoinServer {
     type Item = ();
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.monitor.poll().map_err(|e| e.unwrap_or(ErrorKind::ServerAborted.into()))
+        self.0
+            .monitor
+            .poll()
+            .map_err(|e| e.unwrap_or(Status::InternalServerError.cause("HTTP server aborted")))
     }
 }
 
@@ -177,12 +179,12 @@ impl<S, T> Future for ServerLoop<S, T>
                 }
                 Async::NotReady => {}
             }
-            match self.incoming.poll()? {
+            match track_try!(self.incoming.poll()) {
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(None) => unreachable!(),
                 Async::Ready(Some((socket, address))) => {
                     let (socket_handler, connection_handler) = self.server.create_handlers();
-                    self.spawner.spawn(socket.map_err(Error::from)
+                    self.spawner.spawn(track_err!(socket)
                         .and_then(move |socket| socket_handler.handle(socket))
                         .then(move |result| match result {
                             Err(e) => {

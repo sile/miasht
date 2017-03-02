@@ -2,7 +2,7 @@ use std::io::{self, Read, BufRead};
 use httparse;
 use futures::{Future, Poll, Async};
 
-use {Error, ErrorKind, Version, Method};
+use {Error, Version, Method, Status};
 use {Metadata, TransportStream};
 use status::RawStatus;
 use header::Headers;
@@ -23,7 +23,7 @@ impl<T: TransportStream> Future for ReadRequest<T> {
         let mut connection = self.0.take().expect("Cannot poll ReadRequest twice");
         let (bytes, headers) = unsafe { connection.inner.buffer_and_headers() };
         let mut req = httparse::Request::new(headers);
-        if let httparse::Status::Complete(body_offset) = req.parse(bytes)? {
+        if let httparse::Status::Complete(body_offset) = track_try!(req.parse(bytes)) {
             connection.inner.buffer.consume(body_offset);
             let version = if req.version.unwrap() == 0 {
                 Version::Http1_0
@@ -31,8 +31,13 @@ impl<T: TransportStream> Future for ReadRequest<T> {
                 debug_assert_eq!(req.version.unwrap(), 1);
                 Version::Http1_1
             };
-            let method = Method::try_from_str(req.method.unwrap())
-                    .ok_or_else(|| ErrorKind::UnknownMethod(req.method.unwrap().to_string()))?;
+            let method = if let Some(method) = Method::try_from_str(req.method.unwrap()) {
+                method
+            } else {
+                track_panic!(Status::BadRequest,
+                             "Unknown HTTP method: {}",
+                             req.method.unwrap().to_string());
+            };
             Ok(Async::Ready(Request {
                 version: version,
                 path: req.path.unwrap(),
@@ -41,7 +46,7 @@ impl<T: TransportStream> Future for ReadRequest<T> {
                 connection: connection,
             }))
         } else {
-            let filled = connection.inner.fill_buffer()?;
+            let filled = track_try!(connection.inner.fill_buffer());
             self.0 = Some(connection);
             if filled {
                 self.poll()

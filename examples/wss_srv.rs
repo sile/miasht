@@ -5,6 +5,8 @@ extern crate miasht;
 extern crate sha1;
 extern crate base64;
 extern crate handy_async;
+#[macro_use]
+extern crate trackable;
 
 use fibers::{Executor, ThreadPoolExecutor, Spawn};
 use futures::{Future, BoxFuture, IntoFuture};
@@ -93,9 +95,9 @@ fn handle_upgrade(_: (), request: TcpRequest) -> Result<BoxFuture<(), ()>, TcpRe
         .and_then(|conn| {
             let stream = conn.into_raw_stream();
             let buf = vec![0; 128];
-            stream.async_read(buf)
-                .map(|(_, buf, size)| println!("# BUF: {:?}", &buf[..size]))
-                .map_err(|e| From::from(e.into_error()))
+            let future = stream.async_read(buf)
+                .map(|(_, buf, size)| println!("# BUF: {:?}", &buf[..size]));
+            track_err!(future)
         })
         .then(|_| Ok(()))
         .boxed())

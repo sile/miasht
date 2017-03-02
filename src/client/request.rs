@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 use futures::{Future, Poll, Async};
 
-use {Error, Method};
+use {Error, Method, Status};
 use header::Header;
 use connection::TransportStream;
 use super::Connection;
@@ -65,9 +65,9 @@ impl<T: TransportStream> Future for Request<T> {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.flush() {
             Err(e) => {
-                if e.kind() != io::ErrorKind::WouldBlock {
-                    bail!(e);
-                }
+                track_assert_eq!(e.kind(),
+                                 io::ErrorKind::WouldBlock,
+                                 Status::InternalServerError);
                 Ok(Async::NotReady)
             }
             Ok(()) => {

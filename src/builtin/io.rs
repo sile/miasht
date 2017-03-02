@@ -29,9 +29,9 @@ impl<R> BodyReader<R>
     where R: Read + Metadata
 {
     pub fn new(inner: R) -> Result<Self> {
-        if let Some(h) = inner.headers().parse::<ContentLength>()? {
+        if let Some(h) = track_try!(inner.headers().parse::<ContentLength>()) {
             Ok(BodyReader::FixedLength(inner.take(h.len())))
-        } else if let true = inner.headers().parse::<TransferEncoding>()?.is_some() {
+        } else if let true = track_try!(inner.headers().parse::<TransferEncoding>()).is_some() {
             Ok(BodyReader::Chunked(ChunkedBodyReader::new(inner)))
         } else {
             Ok(BodyReader::Raw(inner))
