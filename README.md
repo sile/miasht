@@ -8,3 +8,6 @@ miasht
 **Mi**nimum **as**ynchronous **HT**TP server/client library for Rust.
 
 [Documentation](https://docs.rs/miasht)
+
+This crate is a not comprehensive framework.
+The aim is to provide a collection of basic building blocks.
