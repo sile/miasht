@@ -33,6 +33,8 @@ impl<R> BodyReader<R>
             Ok(BodyReader::FixedLength(inner.take(h.len())))
         } else if let true = track_try!(inner.headers().parse::<TransferEncoding>()).is_some() {
             Ok(BodyReader::Chunked(ChunkedBodyReader::new(inner)))
+        } else if inner.is_request() {
+            Ok(BodyReader::FixedLength(inner.take(0)))
         } else {
             Ok(BodyReader::Raw(inner))
         }
