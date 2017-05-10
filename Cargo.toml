@@ -20,4 +20,4 @@ trackable = "0.1"
 [dev-dependencies]
 clap = "2"
 sha1 = "0.2"
-base64 = "0.4"
+base64 = "0.5"
