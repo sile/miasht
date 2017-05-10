@@ -3,7 +3,7 @@ use futures::{Future, Poll, Async};
 
 use {Error, TransportStream, Status};
 use status::RawStatus;
-use header::Header;
+use header::{Header, HeadersMut};
 use super::Connection;
 
 pub fn builder<T>(mut connection: Connection<T>, status: RawStatus) -> ResponseBuilder<T>
@@ -20,16 +20,15 @@ pub fn builder<T>(mut connection: Connection<T>, status: RawStatus) -> ResponseB
 #[derive(Debug)]
 pub struct ResponseBuilder<T>(Connection<T>);
 impl<T: TransportStream> ResponseBuilder<T> {
+    pub fn headers_mut(&mut self) -> HeadersMut {
+        HeadersMut::new(&mut self.0.inner.buffer)
+    }
     pub fn add_raw_header(&mut self, name: &str, value: &[u8]) -> &mut Self {
-        let _ = write!(self.0.inner.buffer, "{}: ", name);
-        let _ = self.0.inner.buffer.write_all(value);
-        let _ = write!(self.0.inner.buffer, "\r\n");
+        self.headers_mut().add_raw_header(name, value);
         self
     }
     pub fn add_header<'a, H: Header<'a>>(&mut self, header: &H) -> &mut Self {
-        let _ = write!(self.0.inner.buffer, "{}: ", H::name());
-        let _ = header.write_value(&mut self.0.inner.buffer);
-        let _ = write!(self.0.inner.buffer, "\r\n");
+        self.headers_mut().add_header(header);
         self
     }
     pub fn finish(mut self) -> Response<T> {

@@ -6,6 +6,8 @@ use std::slice;
 use std::ascii::AsciiExt;
 use httparse;
 
+use connection::Buffer;
+
 #[derive(Debug)]
 pub struct Headers<'a>(&'a [httparse::Header<'a>]);
 impl<'a> Headers<'a> {
@@ -20,10 +22,34 @@ impl<'a> Headers<'a> {
         }
     }
     pub fn get(&self, name: &str) -> Option<&[u8]> {
-        self.iter().find(|h| h.0.eq_ignore_ascii_case(name)).map(|h| h.1)
+        self.iter()
+            .find(|h| h.0.eq_ignore_ascii_case(name))
+            .map(|h| h.1)
     }
     pub fn iter(&self) -> Iter {
         Iter(self.0.iter())
+    }
+}
+
+#[derive(Debug)]
+pub struct HeadersMut<'a>(&'a mut Buffer);
+impl<'a> HeadersMut<'a> {
+    // TODO: private
+    pub fn new(buffer: &'a mut Buffer) -> Self {
+        HeadersMut(buffer)
+    }
+
+    pub fn add_raw_header(&mut self, name: &str, value: &[u8]) -> &mut Self {
+        let _ = write!(self.0, "{}: ", name);
+        let _ = self.0.write_all(value);
+        let _ = write!(self.0, "\r\n");
+        self
+    }
+    pub fn add_header<'b, H: Header<'b>>(&mut self, header: &H) -> &mut Self {
+        let _ = write!(self.0, "{}: ", H::name());
+        let _ = header.write_value(&mut self.0);
+        let _ = write!(self.0, "\r\n");
+        self
     }
 }
 
@@ -41,18 +67,19 @@ pub trait Header<'a>: Sized {
     fn name() -> &'static str;
     fn write_value<W: Write>(&self, writer: &mut W) -> io::Result<()>;
     fn parse_value_bytes(value: &'a [u8]) -> Result<Self, ParseValueError<Self::Error>> {
-        let s = str::from_utf8(value).map_err(|e| {
-                ParseValueError::InvalidUtf8 {
-                    name: Self::name(),
-                    reason: e,
-                }
-            })?;
+        let s = str::from_utf8(value)
+            .map_err(|e| {
+                         ParseValueError::InvalidUtf8 {
+                             name: Self::name(),
+                             reason: e,
+                         }
+                     })?;
         Self::parse_value_str(s).map_err(|e| {
-            ParseValueError::Malformed {
-                name: Self::name(),
-                reason: e,
-            }
-        })
+                                             ParseValueError::Malformed {
+                                                 name: Self::name(),
+                                                 reason: e,
+                                             }
+                                         })
     }
     fn parse_value_str(value: &'a str) -> Result<Self, Self::Error>;
 }

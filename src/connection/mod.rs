@@ -3,7 +3,7 @@ use httparse;
 use fibers::net::TcpStream;
 
 use unsafe_types::UnsafeHeader;
-use self::buffer::Buffer;
+pub use self::buffer::Buffer;
 
 mod buffer;
 
