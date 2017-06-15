@@ -109,8 +109,12 @@ impl ServerHandle {
         let (command_tx, command_rx) = mpsc::channel();
         let future = {
             let spawner = spawner.clone();
-            track_err!(TcpListener::bind(bind_addr)).and_then(
-                move |mut listener| if let Err(e) = server.before_listen(&mut listener) {
+            TcpListener::bind(bind_addr)
+                .map_err(|e| track!(Error::from(e)))
+                .and_then(move |mut listener| if let Err(e) = server.before_listen(
+                    &mut listener,
+                )
+                {
                     Either::A(futures::failed(e))
                 } else {
                     let server_loop = ServerLoop {
@@ -120,8 +124,7 @@ impl ServerHandle {
                         command_rx: command_rx,
                     };
                     Either::B(server_loop)
-                },
-            )
+                })
         };
         let monitor = spawner.spawn_monitor(future);
         ServerHandle {
@@ -145,7 +148,11 @@ impl Future for JoinServer {
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.0.monitor.poll().map_err(|e| {
-            e.unwrap_or(Status::InternalServerError.cause("HTTP server aborted"))
+            e.unwrap_or(
+                Status::InternalServerError
+                    .cause("HTTP server aborted")
+                    .into(),
+            )
         })
     }
 }
@@ -184,13 +191,14 @@ where
                 }
                 Async::NotReady => {}
             }
-            match track_try!(self.incoming.poll()) {
+            match self.incoming.poll().map_err(|e| track!(Error::from(e)))? {
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(None) => unreachable!(),
                 Async::Ready(Some((socket, address))) => {
                     let (socket_handler, connection_handler) = self.server.create_handlers();
                     self.spawner.spawn(
-                        track_err!(socket)
+                        socket
+                            .map_err(|e| track!(Error::from(e)))
                             .and_then(move |socket| socket_handler.handle(socket))
                             .then(move |result| match result {
                                 Err(e) => {

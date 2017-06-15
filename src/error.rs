@@ -2,38 +2,39 @@ use std::io;
 use std::sync::mpsc::RecvError;
 use httparse;
 use handy_async::error::AsyncError;
-use trackable::error::{TrackableError, IntoTrackableError};
+use trackable::error::TrackableError;
 use trackable::error::{ErrorKind, ErrorKindExt};
 
 use header;
 use status::Status;
 
-pub type Error = TrackableError<Status>;
+#[derive(Debug, Clone)]
+pub struct Error(TrackableError<Status>);
+derive_traits_for_trackable_error_newtype!(Error, Status);
+impl From<io::Error> for Error {
+    fn from(f: io::Error) -> Self {
+        Status::InternalServerError.cause(f).into()
+    }
+}
+impl<T> From<AsyncError<T, io::Error>> for Error {
+    fn from(f: AsyncError<T, io::Error>) -> Self {
+        Status::InternalServerError.cause(f.into_error()).into()
+    }
+}
+impl From<httparse::Error> for Error {
+    fn from(f: httparse::Error) -> Self {
+        Status::BadRequest.cause(f).into()
+    }
+}
+impl<E: ::std::error::Error + Send + Sync + 'static> From<header::ParseValueError<E>> for Error {
+    fn from(f: header::ParseValueError<E>) -> Self {
+        Status::BadRequest.cause(f).into()
+    }
+}
+impl From<RecvError> for Error {
+    fn from(f: RecvError) -> Self {
+        Status::BadRequest.cause(f).into()
+    }
+}
 
 impl ErrorKind for Status {}
-impl IntoTrackableError<io::Error> for Status {
-    fn into_trackable_error(from: io::Error) -> Error {
-        Status::InternalServerError.cause(from)
-    }
-}
-impl<T> IntoTrackableError<AsyncError<T, io::Error>> for Status {
-    fn into_trackable_error(from: AsyncError<T, io::Error>) -> Error {
-        Status::InternalServerError.cause(from.into_error())
-    }
-}
-impl IntoTrackableError<httparse::Error> for Status {
-    fn into_trackable_error(from: httparse::Error) -> Error {
-        Status::BadRequest.cause(from)
-    }
-}
-impl<E: ::std::error::Error + Send + Sync + 'static> IntoTrackableError<header::ParseValueError<E>>
-    for Status {
-    fn into_trackable_error(from: header::ParseValueError<E>) -> Error {
-        Status::BadRequest.cause(from)
-    }
-}
-impl IntoTrackableError<RecvError> for Status {
-    fn into_trackable_error(from: RecvError) -> Error {
-        Status::BadRequest.cause(from)
-    }
-}

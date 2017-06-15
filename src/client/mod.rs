@@ -97,8 +97,10 @@ impl Future for Connect {
     type Item = Connection<TcpStream>;
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(track_try!(self.future.poll()).map(|socket| {
-            Connection::new(socket, &self.client)
-        }))
+        Ok(track!(self.future.poll().map_err(Error::from))?.map(
+            |socket| {
+                Connection::new(socket, &self.client)
+            },
+        ))
     }
 }

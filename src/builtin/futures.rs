@@ -53,7 +53,7 @@ impl<R: Read> Future for ReadAllBytes<R> {
     type Item = (R, Vec<u8>);
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        track_err!(self.0.poll())
+        track!(self.0.poll().map_err(Error::from))
     }
 }
 
@@ -67,7 +67,7 @@ impl<R: Read> Future for ReadAllStr<R> {
     type Item = (R, String);
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        track_err!(self.0.poll())
+        track!(self.0.poll().map_err(Error::from))
     }
 }
 
@@ -82,7 +82,7 @@ impl<W: Write, B: AsRef<[u8]>> Future for WriteAllBytes<W, B> {
     type Item = W;
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        track_err!(self.0.poll()).map(|v| v.map(|(w, _)| w))
+        track!(self.0.poll().map_err(Error::from)).map(|v| v.map(|(w, _)| w))
     }
 }
 
@@ -111,8 +111,8 @@ where
     type Item = T;
     type Error = E;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready(()) = track_try!(self.timeout.poll()) {
-            Err(E::from(Status::RequestTimeout.error()))
+        if let Async::Ready(()) = track!(self.timeout.poll().map_err(Error::from))? {
+            Err(E::from(Status::RequestTimeout.error().into()))
         } else {
             self.future.poll()
         }

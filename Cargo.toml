@@ -15,9 +15,9 @@ fibers = "0.1"
 futures = "0.1"
 httparse = "1"
 handy_async = "0.2"
-trackable = "0.1"
+trackable = "0.2"
 
 [dev-dependencies]
 clap = "2"
 sha1 = "0.2"
-base64 = "0.5"
+base64 = "0.6"

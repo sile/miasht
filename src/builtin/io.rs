@@ -3,7 +3,7 @@ use std::cmp;
 use std::io::{self, Read, Take};
 use httparse;
 
-use {Result, Metadata};
+use {Result, Error, Metadata};
 use super::headers::{ContentLength, TransferEncoding};
 
 pub trait IoExt: Sized {
@@ -32,9 +32,16 @@ where
     R: Read + Metadata,
 {
     pub fn new(inner: R) -> Result<Self> {
-        if let Some(h) = track_try!(inner.headers().parse::<ContentLength>()) {
+        if let Some(h) = track!(inner.headers().parse::<ContentLength>().map_err(
+            Error::from,
+        ))?
+        {
             Ok(BodyReader::FixedLength(inner.take(h.len())))
-        } else if let true = track_try!(inner.headers().parse::<TransferEncoding>()).is_some() {
+        } else if let true = track!(inner.headers().parse::<TransferEncoding>().map_err(
+            Error::from,
+        ))?
+            .is_some()
+        {
             Ok(BodyReader::Chunked(ChunkedBodyReader::new(inner)))
         } else if inner.is_request() {
             Ok(BodyReader::FixedLength(inner.take(0)))

@@ -10,7 +10,7 @@ extern crate trackable;
 
 use fibers::{Executor, ThreadPoolExecutor, Spawn};
 use futures::{Future, BoxFuture, IntoFuture};
-use miasht::{Server, Status, Method};
+use miasht::{Server, Status, Method, Error};
 use miasht::builtin::servers::{SimpleHttpServer, RawConnection};
 use miasht::builtin::headers::ContentLength;
 use miasht::builtin::{IoExt, FutureExt};
@@ -106,7 +106,7 @@ fn handle_upgrade(_: (), request: TcpRequest) -> Result<BoxFuture<(), ()>, TcpRe
                 let future = stream.async_read(buf).map(|(_, buf, size)| {
                     println!("# BUF: {:?}", &buf[..size])
                 });
-                track_err!(future)
+                future.map_err(|e| track!(Error::from(e)))
             })
             .then(|_| Ok(()))
             .boxed(),

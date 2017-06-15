@@ -23,7 +23,9 @@ impl<T: TransportStream> Future for ReadRequest<T> {
         let mut connection = self.0.take().expect("Cannot poll ReadRequest twice");
         let (bytes, headers) = unsafe { connection.inner.buffer_and_headers() };
         let mut req = httparse::Request::new(headers);
-        if let httparse::Status::Complete(body_offset) = track_try!(req.parse(bytes)) {
+        if let httparse::Status::Complete(body_offset) =
+            track!(req.parse(bytes).map_err(Error::from))?
+        {
             connection.inner.buffer.consume(body_offset);
             let version = if req.version.unwrap() == 0 {
                 Version::Http1_0
@@ -48,7 +50,7 @@ impl<T: TransportStream> Future for ReadRequest<T> {
                 connection: connection,
             }))
         } else {
-            let filled = track_try!(connection.inner.fill_buffer());
+            let filled = track!(connection.inner.fill_buffer().map_err(Error::from))?;
             self.0 = Some(connection);
             if filled {
                 self.poll()
