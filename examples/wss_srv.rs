@@ -37,7 +37,8 @@ fn main() {
 }
 
 fn route(router: Router<fibers::net::TcpStream>, connection: RawConnection) -> BoxFuture<(), ()> {
-    connection.read_request()
+    connection
+        .read_request()
         .map_err(|e| {
             println!("Error: {:?}", e);
             ()
@@ -60,7 +61,13 @@ fn handle_get_file(_: (), request: TcpRequest) -> Result<BoxFuture<(), ()>, TcpR
         let connection = request.finish();
         let mut response = connection.build_response(Status::Ok);
         response.add_header(&ContentLength(buf.len() as u64));
-        Ok(response.finish().write_all_bytes(buf).then(|_| Ok(())).boxed())
+        Ok(
+            response
+                .finish()
+                .write_all_bytes(buf)
+                .then(|_| Ok(()))
+                .boxed(),
+        )
     } else {
         Err(request)
     }
@@ -73,10 +80,9 @@ fn handle_upgrade(_: (), request: TcpRequest) -> Result<BoxFuture<(), ()>, TcpRe
     if request.headers().get("Upgrade") != Some(b"websocket") {
         return Err(request);
     }
-    let key = std::str::from_utf8(request.headers()
-            .get("Sec-WebSocket-Key")
-            .expect("No 'Sec-WebSocket-Key'"))
-        .unwrap()
+    let key = std::str::from_utf8(request.headers().get("Sec-WebSocket-Key").expect(
+        "No 'Sec-WebSocket-Key'",
+    )).unwrap()
         .to_string();
     println!("# WebSocket: key={}", key);
 
@@ -91,48 +97,61 @@ fn handle_upgrade(_: (), request: TcpRequest) -> Result<BoxFuture<(), ()>, TcpRe
     let accept_key = base64::encode(&m.digest().bytes()[..]);
     response.add_raw_header("Sec-WebSocket-Accept", accept_key.as_bytes());
     //response.add_header(&ContentLength(buf.len() as u64));
-    Ok(response.finish()
-        .and_then(|conn| {
-            let stream = conn.into_raw_stream();
-            let buf = vec![0; 128];
-            let future = stream.async_read(buf)
-                .map(|(_, buf, size)| println!("# BUF: {:?}", &buf[..size]));
-            track_err!(future)
-        })
-        .then(|_| Ok(()))
-        .boxed())
+    Ok(
+        response
+            .finish()
+            .and_then(|conn| {
+                let stream = conn.into_raw_stream();
+                let buf = vec![0; 128];
+                let future = stream.async_read(buf).map(|(_, buf, size)| {
+                    println!("# BUF: {:?}", &buf[..size])
+                });
+                track_err!(future)
+            })
+            .then(|_| Ok(()))
+            .boxed(),
+    )
 }
 fn handle_default(_: (), request: TcpRequest) -> Result<BoxFuture<(), ()>, TcpRequest> {
-    println!("# headers: {:?}",
-             request.headers()
-                 .iter()
-                 .map(|(k, v)| (k, std::str::from_utf8(v)))
-                 .collect::<Vec<_>>());
-    Ok(request.finish()
-        .build_response(Status::MethodNotAllowed)
-        .finish()
-        .write_all_bytes("Please use PUT method\n")
-        .then(|_| Ok(()))
-        .boxed())
+    println!(
+        "# headers: {:?}",
+        request
+            .headers()
+            .iter()
+            .map(|(k, v)| (k, std::str::from_utf8(v)))
+            .collect::<Vec<_>>()
+    );
+    Ok(
+        request
+            .finish()
+            .build_response(Status::MethodNotAllowed)
+            .finish()
+            .write_all_bytes("Please use PUT method\n")
+            .then(|_| Ok(()))
+            .boxed(),
+    )
 }
 
 fn handle_put(_: (), request: TcpRequest) -> Result<BoxFuture<(), ()>, TcpRequest> {
     if miasht::Method::Put != request.method() {
         return Err(request);
     }
-    Ok(request.into_body_reader()
-        .into_future()
-        .and_then(|r| r.read_all_bytes())
-        .map_err(|e| {
-            println!("Error: {:?}", e);
-            ()
-        })
-        .and_then(|(request, buf)| {
-            let connection = request.into_inner().finish();
+    Ok(
+        request
+            .into_body_reader()
+            .into_future()
+            .and_then(|r| r.read_all_bytes())
+            .map_err(|e| {
+                println!("Error: {:?}", e);
+                ()
+            })
+            .and_then(|(request, buf)| {
+                let connection = request.into_inner().finish();
 
-            let mut response = connection.build_response(Status::Ok);
-            response.add_header(&ContentLength(buf.len() as u64));
-            response.finish().write_all_bytes(buf).then(|_| Ok(()))
-        })
-        .boxed())
+                let mut response = connection.build_response(Status::Ok);
+                response.add_header(&ContentLength(buf.len() as u64));
+                response.finish().write_all_bytes(buf).then(|_| Ok(()))
+            })
+            .boxed(),
+    )
 }

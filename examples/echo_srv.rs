@@ -21,9 +21,12 @@ fn main() {
 }
 
 fn echo(_: (), connection: RawConnection) -> BoxFuture<(), ()> {
-    connection.read_request()
+    connection
+        .read_request()
         .and_then(|request| {
-            request.into_body_reader().into_future().and_then(|r| r.read_all_bytes())
+            request.into_body_reader().into_future().and_then(|r| {
+                r.read_all_bytes()
+            })
         })
         .and_then(|(request, buf)| {
             let connection = request.into_inner().finish();

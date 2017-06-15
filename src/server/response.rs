@@ -7,13 +7,16 @@ use header::{Header, HeadersMut};
 use super::Connection;
 
 pub fn builder<T>(mut connection: Connection<T>, status: RawStatus) -> ResponseBuilder<T>
-    where T: TransportStream
+where
+    T: TransportStream,
 {
     connection.inner.buffer.enter_write_phase();
-    let _ = write!(connection.inner.buffer,
-                   "{} {}\r\n",
-                   connection.version,
-                   status);
+    let _ = write!(
+        connection.inner.buffer,
+        "{} {}\r\n",
+        connection.version,
+        status
+    );
     ResponseBuilder(connection)
 }
 
@@ -45,8 +48,10 @@ impl<T: TransportStream> Write for Response<T> {
             c.inner.flush_buffer()?;
             c.inner.stream.write(buf)
         } else {
-            Err(io::Error::new(io::ErrorKind::WriteZero,
-                               "Cannot write into finished response"))
+            Err(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "Cannot write into finished response",
+            ))
         }
     }
     fn flush(&mut self) -> io::Result<()> {
@@ -63,9 +68,11 @@ impl<T: TransportStream> Future for Response<T> {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.flush() {
             Err(e) => {
-                track_assert_eq!(e.kind(),
-                                 io::ErrorKind::WouldBlock,
-                                 Status::InternalServerError);
+                track_assert_eq!(
+                    e.kind(),
+                    io::ErrorKind::WouldBlock,
+                    Status::InternalServerError
+                );
                 Ok(Async::NotReady)
             }
             Ok(()) => {

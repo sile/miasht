@@ -7,14 +7,17 @@ use connection::TransportStream;
 use super::Connection;
 
 pub fn builder<T>(mut connection: Connection<T>, method: Method, path: &str) -> RequestBuilder<T>
-    where T: TransportStream
+where
+    T: TransportStream,
 {
     connection.inner.buffer.enter_write_phase();
-    let _ = write!(connection.inner.buffer,
-                   "{} {} {}\r\n",
-                   method,
-                   path,
-                   connection.version);
+    let _ = write!(
+        connection.inner.buffer,
+        "{} {} {}\r\n",
+        method,
+        path,
+        connection.version
+    );
     RequestBuilder(connection)
 }
 
@@ -46,8 +49,10 @@ impl<T: TransportStream> Write for Request<T> {
             c.inner.flush_buffer()?;
             c.inner.stream.write(buf)
         } else {
-            Err(io::Error::new(io::ErrorKind::WriteZero,
-                               "Cannot write into finished request"))
+            Err(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "Cannot write into finished request",
+            ))
         }
     }
     fn flush(&mut self) -> io::Result<()> {
@@ -64,9 +69,11 @@ impl<T: TransportStream> Future for Request<T> {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.flush() {
             Err(e) => {
-                track_assert_eq!(e.kind(),
-                                 io::ErrorKind::WouldBlock,
-                                 Status::InternalServerError);
+                track_assert_eq!(
+                    e.kind(),
+                    io::ErrorKind::WouldBlock,
+                    Status::InternalServerError
+                );
                 Ok(Async::NotReady)
             }
             Ok(()) => {

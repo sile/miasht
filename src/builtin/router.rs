@@ -9,18 +9,21 @@ pub struct RouteBuilder<T> {
     handlers: Vec<Box<HandleRequest<T> + Sync>>,
 }
 impl<T> RouteBuilder<T>
-    where T: TransportStream + 'static
+where
+    T: TransportStream + 'static,
 {
     pub fn new() -> Self {
         RouteBuilder { handlers: Vec::new() }
     }
     pub fn add_handler<H>(&mut self, handler: H)
-        where H: HandleRequest<T> + Sync + 'static
+    where
+        H: HandleRequest<T> + Sync + 'static,
     {
         self.handlers.push(Box::new(handler));
     }
     pub fn add_callback<A>(&mut self, argument: A, callback: Callback<A, T>)
-        where A: Clone + Sync + 'static
+    where
+        A: Clone + Sync + 'static,
     {
         self.add_handler(RequestHandleCallback(argument, callback))
     }
@@ -40,7 +43,8 @@ impl<T> Clone for Router<T> {
     }
 }
 impl<T> Router<T>
-    where T: TransportStream + Send + 'static
+where
+    T: TransportStream + Send + 'static,
 {
     pub fn handle_request(&self, mut request: Request<T>) -> BoxFuture<(), ()> {
         for handler in self.handlers.iter() {
@@ -49,7 +53,12 @@ impl<T> Router<T>
                 Err(req) => request = req,
             }
         }
-        request.finish().build_response(Status::NotFound).finish().then(|_| Ok(())).boxed()
+        request
+            .finish()
+            .build_response(Status::NotFound)
+            .finish()
+            .then(|_| Ok(()))
+            .boxed()
     }
 }
 
@@ -59,7 +68,8 @@ pub trait HandleRequest<T> {
 
 pub struct RequestHandleCallback<A, T>(A, Callback<A, T>);
 impl<A, T> HandleRequest<T> for RequestHandleCallback<A, T>
-    where A: Clone + Sync + 'static
+where
+    A: Clone + Sync + 'static,
 {
     fn try_handle(&self, request: Request<T>) -> Result<BoxFuture<(), ()>, Request<T>> {
         let argument = self.0.clone();

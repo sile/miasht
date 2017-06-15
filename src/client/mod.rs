@@ -63,10 +63,12 @@ pub struct Connection<T> {
 impl<T: TransportStream> Connection<T> {
     fn new(stream: T, client: &Client) -> Self {
         let max_header_count = client.max_response_header_count;
-        let inner = connection::Connection::new(stream,
-                                                client.min_buffer_size,
-                                                client.max_buffer_size,
-                                                max_header_count);
+        let inner = connection::Connection::new(
+            stream,
+            client.min_buffer_size,
+            client.max_buffer_size,
+            max_header_count,
+        );
         Connection {
             inner: inner,
             version: client.version,
@@ -95,8 +97,8 @@ impl Future for Connect {
     type Item = Connection<TcpStream>;
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(track_try!(self.future
-                .poll())
-            .map(|socket| Connection::new(socket, &self.client)))
+        Ok(track_try!(self.future.poll()).map(|socket| {
+            Connection::new(socket, &self.client)
+        }))
     }
 }

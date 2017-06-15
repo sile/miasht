@@ -22,9 +22,9 @@ impl<'a> Headers<'a> {
         }
     }
     pub fn get(&self, name: &str) -> Option<&[u8]> {
-        self.iter()
-            .find(|h| h.0.eq_ignore_ascii_case(name))
-            .map(|h| h.1)
+        self.iter().find(|h| h.0.eq_ignore_ascii_case(name)).map(
+            |h| h.1,
+        )
     }
     pub fn iter(&self) -> Iter {
         Iter(self.0.iter())
@@ -67,19 +67,18 @@ pub trait Header<'a>: Sized {
     fn name() -> &'static str;
     fn write_value<W: Write>(&self, writer: &mut W) -> io::Result<()>;
     fn parse_value_bytes(value: &'a [u8]) -> Result<Self, ParseValueError<Self::Error>> {
-        let s = str::from_utf8(value)
-            .map_err(|e| {
-                         ParseValueError::InvalidUtf8 {
-                             name: Self::name(),
-                             reason: e,
-                         }
-                     })?;
+        let s = str::from_utf8(value).map_err(|e| {
+            ParseValueError::InvalidUtf8 {
+                name: Self::name(),
+                reason: e,
+            }
+        })?;
         Self::parse_value_str(s).map_err(|e| {
-                                             ParseValueError::Malformed {
-                                                 name: Self::name(),
-                                                 reason: e,
-                                             }
-                                         })
+            ParseValueError::Malformed {
+                name: Self::name(),
+                reason: e,
+            }
+        })
     }
     fn parse_value_str(value: &'a str) -> Result<Self, Self::Error>;
 }
@@ -93,7 +92,8 @@ pub enum ParseValueError<E> {
     Malformed { name: &'static str, reason: E },
 }
 impl<E> ParseValueError<E>
-    where E: Into<Box<error::Error + Send + Sync>>
+where
+    E: Into<Box<error::Error + Send + Sync>>,
 {
     pub fn boxed(self) -> ParseValueError<Box<error::Error + Send + Sync>> {
         match self {
@@ -113,27 +113,33 @@ impl<E> ParseValueError<E>
     }
 }
 impl<E> fmt::Display for ParseValueError<E>
-    where E: fmt::Display
+where
+    E: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ParseValueError::InvalidUtf8 { name, ref reason } => {
-                write!(f,
-                       "Invalid UTF-8 in HTTP header {:?}: reason={}",
-                       name,
-                       reason)
+                write!(
+                    f,
+                    "Invalid UTF-8 in HTTP header {:?}: reason={}",
+                    name,
+                    reason
+                )
             }
             ParseValueError::Malformed { name, ref reason } => {
-                write!(f,
-                       "Malformed HTTP header value: name={:?}, reason={}",
-                       name,
-                       reason)
+                write!(
+                    f,
+                    "Malformed HTTP header value: name={:?}, reason={}",
+                    name,
+                    reason
+                )
             }
         }
     }
 }
 impl<E> error::Error for ParseValueError<E>
-    where E: error::Error
+where
+    E: error::Error,
 {
     fn description(&self) -> &str {
         match *self {

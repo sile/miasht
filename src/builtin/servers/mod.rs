@@ -16,8 +16,9 @@ pub struct SimpleHttpServer<A, F> {
     callback: fn(A, RawConnection) -> F,
 }
 impl<A, F> SimpleHttpServer<A, F>
-    where A: Clone + Send + 'static,
-          F: Future<Item = (), Error = ()> + Send + 'static
+where
+    A: Clone + Send + 'static,
+    F: Future<Item = (), Error = ()> + Send + 'static,
 {
     pub fn new(argument: A, callback: fn(A, RawConnection) -> F) -> Self {
         SimpleHttpServer {
@@ -46,8 +47,9 @@ impl<A, F> SimpleHttpServer<A, F> {
     }
 }
 impl<A, F> Server for SimpleHttpServer<A, F>
-    where A: Clone + Send + 'static,
-          F: Future<Item = (), Error = ()> + Send + 'static
+where
+    A: Clone + Send + 'static,
+    F: Future<Item = (), Error = ()> + Send + 'static,
 {
     type Transport = TcpStream;
     type SocketHandler = RawSocketHandler;
@@ -58,8 +60,8 @@ impl<A, F> Server for SimpleHttpServer<A, F>
             min_buffer_size: self.min_buffer_size,
             max_buffer_size: self.max_buffer_size,
         };
-        let connection_handler = ConnectionHandleCallback::new(self.argument.clone(),
-                                                               self.callback);
+        let connection_handler =
+            ConnectionHandleCallback::new(self.argument.clone(), self.callback);
         (socket_handler, connection_handler)
     }
 }
@@ -74,10 +76,12 @@ impl HandleSocket for RawSocketHandler {
     type Transport = TcpStream;
     type Future = Finished<Connection<Self::Transport>, Error>;
     fn handle(self, socket: TcpStream) -> Self::Future {
-        let connection = Connection::new(socket,
-                                         self.min_buffer_size,
-                                         self.max_buffer_size,
-                                         self.max_request_header_count);
+        let connection = Connection::new(
+            socket,
+            self.min_buffer_size,
+            self.max_buffer_size,
+            self.max_request_header_count,
+        );
         futures::finished(connection)
     }
 }
@@ -88,9 +92,10 @@ pub struct ConnectionHandleCallback<A, T, F> {
     callback: fn(A, Connection<T>) -> F,
 }
 impl<A, T, F> ConnectionHandleCallback<A, T, F>
-    where A: Send + 'static,
-          T: TransportStream + 'static,
-          F: Future<Item = (), Error = ()> + Send + 'static
+where
+    A: Send + 'static,
+    T: TransportStream + 'static,
+    F: Future<Item = (), Error = ()> + Send + 'static,
 {
     pub fn new(argument: A, callback: fn(A, Connection<T>) -> F) -> Self {
         ConnectionHandleCallback {
@@ -100,9 +105,12 @@ impl<A, T, F> ConnectionHandleCallback<A, T, F>
     }
 }
 impl<A, T, F> HandleConnection for ConnectionHandleCallback<A, T, F>
-    where A: Send + 'static,
-          T: TransportStream + 'static,
-          F: Future<Item = (), Error = ()> + Send + 'static
+where
+    A: Send + 'static,
+    T: TransportStream + 'static,
+    F: Future<Item = (), Error = ()>
+        + Send
+        + 'static,
 {
     type Transport = T;
     type Future = F;

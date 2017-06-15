@@ -159,10 +159,12 @@ impl<'a> Header<'a> for TransferEncoding {
         "Transfer-Encoding"
     }
     fn parse_value_str(value: &'a str) -> Result<Self, Self::Error> {
-        track_assert!(value.eq_ignore_ascii_case("chunked"),
-                      Status::NotImplemented,
-                      "Cannot handle transfer coding {:?}",
-                      value);
+        track_assert!(
+            value.eq_ignore_ascii_case("chunked"),
+            Status::NotImplemented,
+            "Cannot handle transfer coding {:?}",
+            value
+        );
         Ok(TransferEncoding::Chunked)
     }
     fn write_value<W: Write>(&self, writer: &mut W) -> io::Result<()> {

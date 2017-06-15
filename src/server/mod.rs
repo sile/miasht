@@ -28,8 +28,9 @@ pub trait Server {
     }
     fn create_handlers(&mut self) -> (Self::SocketHandler, Self::ConnectionHandler);
     fn start<S>(self, bind_addr: SocketAddr, spawner: S) -> ServerHandle
-        where Self: Sized + Send + 'static,
-              S: Spawn + Clone + Send + 'static
+    where
+        Self: Sized + Send + 'static,
+        S: Spawn + Clone + Send + 'static,
     {
         ServerHandle::start(self, bind_addr, spawner)
     }
@@ -57,11 +58,12 @@ pub struct Connection<T> {
     version: Version,
 }
 impl<T: TransportStream> Connection<T> {
-    pub fn new(stream: T,
-               min_buffer_size: usize,
-               max_buffer_size: usize,
-               max_header_count: usize)
-               -> Self {
+    pub fn new(
+        stream: T,
+        min_buffer_size: usize,
+        max_buffer_size: usize,
+        max_header_count: usize,
+    ) -> Self {
         let inner =
             connection::Connection::new(stream, min_buffer_size, max_buffer_size, max_header_count);
         Connection {
@@ -73,7 +75,8 @@ impl<T: TransportStream> Connection<T> {
         ReadRequest::new(self)
     }
     pub fn build_response<'a, S>(self, status: S) -> ResponseBuilder<T>
-        where S: Into<RawStatus<'a>>
+    where
+        S: Into<RawStatus<'a>>,
     {
         response::builder(self, status.into())
     }
@@ -99,24 +102,26 @@ pub struct ServerHandle {
 }
 impl ServerHandle {
     fn start<S, T>(mut server: S, bind_addr: SocketAddr, spawner: T) -> ServerHandle
-        where S: Server + Send + 'static,
-              T: Spawn + Clone + Send + 'static
+    where
+        S: Server + Send + 'static,
+        T: Spawn + Clone + Send + 'static,
     {
         let (command_tx, command_rx) = mpsc::channel();
         let future = {
             let spawner = spawner.clone();
-            track_err!(TcpListener::bind(bind_addr)).and_then(move |mut listener| if let Err(e) =
-                server.before_listen(&mut listener) {
-                Either::A(futures::failed(e))
-            } else {
-                let server_loop = ServerLoop {
-                    server: server,
-                    spawner: spawner,
-                    incoming: listener.incoming(),
-                    command_rx: command_rx,
-                };
-                Either::B(server_loop)
-            })
+            track_err!(TcpListener::bind(bind_addr)).and_then(
+                move |mut listener| if let Err(e) = server.before_listen(&mut listener) {
+                    Either::A(futures::failed(e))
+                } else {
+                    let server_loop = ServerLoop {
+                        server: server,
+                        spawner: spawner,
+                        incoming: listener.incoming(),
+                        command_rx: command_rx,
+                    };
+                    Either::B(server_loop)
+                },
+            )
         };
         let monitor = spawner.spawn_monitor(future);
         ServerHandle {
@@ -139,10 +144,9 @@ impl Future for JoinServer {
     type Item = ();
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0
-            .monitor
-            .poll()
-            .map_err(|e| e.unwrap_or(Status::InternalServerError.cause("HTTP server aborted")))
+        self.0.monitor.poll().map_err(|e| {
+            e.unwrap_or(Status::InternalServerError.cause("HTTP server aborted"))
+        })
     }
 }
 
@@ -161,8 +165,9 @@ impl<S, T> ServerLoop<S, T> {
     }
 }
 impl<S, T> Future for ServerLoop<S, T>
-    where S: Server,
-          T: Spawn
+where
+    S: Server,
+    T: Spawn,
 {
     type Item = ();
     type Error = Error;
@@ -184,15 +189,17 @@ impl<S, T> Future for ServerLoop<S, T>
                 Async::Ready(None) => unreachable!(),
                 Async::Ready(Some((socket, address))) => {
                     let (socket_handler, connection_handler) = self.server.create_handlers();
-                    self.spawner.spawn(track_err!(socket)
-                        .and_then(move |socket| socket_handler.handle(socket))
-                        .then(move |result| match result {
-                            Err(e) => {
-                                connection_handler.on_error(address, e);
-                                Either::A(futures::failed(()))
-                            }
-                            Ok(connection) => Either::B(connection_handler.handle(connection)),
-                        }));
+                    self.spawner.spawn(
+                        track_err!(socket)
+                            .and_then(move |socket| socket_handler.handle(socket))
+                            .then(move |result| match result {
+                                Err(e) => {
+                                    connection_handler.on_error(address, e);
+                                    Either::A(futures::failed(()))
+                                }
+                                Ok(connection) => Either::B(connection_handler.handle(connection)),
+                            }),
+                    );
                 }
             }
         }

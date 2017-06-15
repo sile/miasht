@@ -34,9 +34,11 @@ impl<T: TransportStream> Future for ReadRequest<T> {
             let method = if let Some(method) = Method::try_from_str(req.method.unwrap()) {
                 method
             } else {
-                track_panic!(Status::BadRequest,
-                             "Unknown HTTP method: {}",
-                             req.method.unwrap().to_string());
+                track_panic!(
+                    Status::BadRequest,
+                    "Unknown HTTP method: {}",
+                    req.method.unwrap().to_string()
+                );
             };
             Ok(Async::Ready(Request {
                 version: version,

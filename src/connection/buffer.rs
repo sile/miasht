@@ -99,8 +99,10 @@ impl Buffer {
     }
     fn check_overflow(&self) -> io::Result<()> {
         if self.phase.tail() == self.max_len {
-            let message = format!("Buffer for HTTP non-body part is overflowed: max_len={}",
-                                  self.max_len);
+            let message = format!(
+                "Buffer for HTTP non-body part is overflowed: max_len={}",
+                self.max_len
+            );
             Err(io::Error::new(io::ErrorKind::WriteZero, message))
         } else {
             Ok(())

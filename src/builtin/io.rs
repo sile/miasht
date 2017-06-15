@@ -8,12 +8,14 @@ use super::headers::{ContentLength, TransferEncoding};
 
 pub trait IoExt: Sized {
     fn into_body_reader(self) -> Result<BodyReader<Self>>
-        where Self: Read + Metadata
+    where
+        Self: Read + Metadata,
     {
         BodyReader::new(self)
     }
     fn max_length(self, max_len: u64) -> MaxLength<Self>
-        where Self: Read
+    where
+        Self: Read,
     {
         MaxLength::new(self, max_len)
     }
@@ -26,7 +28,8 @@ pub enum BodyReader<R> {
     Raw(R),
 }
 impl<R> BodyReader<R>
-    where R: Read + Metadata
+where
+    R: Read + Metadata,
 {
     pub fn new(inner: R) -> Result<Self> {
         if let Some(h) = track_try!(inner.headers().parse::<ContentLength>()) {
@@ -89,12 +92,17 @@ impl<R: Read> ChunkedBodyReader<R> {
     }
     fn fill_buf_byte(&mut self) -> io::Result<()> {
         if self.buf_offset == self.buf.len() {
-            Err(io::Error::new(io::ErrorKind::InvalidData, "Chunk size is too large"))
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Chunk size is too large",
+            ))
         } else {
             let buf = &mut self.buf[self.buf_offset..][..1];
             if 0 == self.inner.read(buf)? {
-                Err(io::Error::new(io::ErrorKind::UnexpectedEof,
-                                   "Unexpected EOF while reading chunked HTTP body"))
+                Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "Unexpected EOF while reading chunked HTTP body",
+                ))
             } else {
                 self.buf_offset += 1;
                 Ok(())
@@ -112,8 +120,10 @@ impl<R: Read> Read for ChunkedBodyReader<R> {
                 self.chunk_remaining = None;
                 self.read(buf)
             } else {
-                Err(io::Error::new(io::ErrorKind::InvalidData,
-                                   r#"Chunk must be terminated with '\r\n'"#))
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    r#"Chunk must be terminated with '\r\n'"#,
+                ))
             }
         } else if let Some(remaining) = self.chunk_remaining {
             let size = cmp::min(remaining, buf.len() as u64) as usize;

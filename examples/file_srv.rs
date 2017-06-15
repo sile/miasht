@@ -32,7 +32,8 @@ fn main() {
 }
 
 fn route(router: Router<fibers::net::TcpStream>, connection: RawConnection) -> BoxFuture<(), ()> {
-    connection.read_request()
+    connection
+        .read_request()
         .map_err(|e| {
             println!("Error: {:?}", e);
             ()
@@ -42,12 +43,15 @@ fn route(router: Router<fibers::net::TcpStream>, connection: RawConnection) -> B
 }
 
 fn handle_default(_: (), request: TcpRequest) -> Result<BoxFuture<(), ()>, TcpRequest> {
-    Ok(request.finish()
-        .build_response(Status::NotFound)
-        .finish()
-        .write_all_bytes("Not Found\n")
-        .then(|_| Ok(()))
-        .boxed())
+    Ok(
+        request
+            .finish()
+            .build_response(Status::NotFound)
+            .finish()
+            .write_all_bytes("Not Found\n")
+            .then(|_| Ok(()))
+            .boxed(),
+    )
 }
 
 fn handle_get(_: (), request: TcpRequest) -> Result<BoxFuture<(), ()>, TcpRequest> {
@@ -55,18 +59,27 @@ fn handle_get(_: (), request: TcpRequest) -> Result<BoxFuture<(), ()>, TcpReques
         return Err(request);
     }
     println!("# GET: {}", &request.path()[1..]);
-    Ok(match fs::File::open(&request.path()[1..])
-        .and_then(|mut f| ReadExt::read_all_bytes(&mut f)) {
+    Ok(match fs::File::open(&request.path()[1..]).and_then(
+        |mut f| {
+            ReadExt::read_all_bytes(&mut f)
+        },
+    ) {
         Err(e) => {
             let reason = e.to_string();
             let mut resp = request.finish().build_response(Status::NotFound);
             resp.add_header(&ContentLength(reason.len() as u64));
-            resp.finish().write_all_bytes(reason).then(|_| Ok(())).boxed()
+            resp.finish()
+                .write_all_bytes(reason)
+                .then(|_| Ok(()))
+                .boxed()
         }
         Ok(bytes) => {
             let mut resp = request.finish().build_response(Status::Ok);
             resp.add_header(&ContentLength(bytes.len() as u64));
-            resp.finish().write_all_bytes(bytes).then(|_| Ok(())).boxed()
+            resp.finish()
+                .write_all_bytes(bytes)
+                .then(|_| Ok(()))
+                .boxed()
         }
     })
 }
