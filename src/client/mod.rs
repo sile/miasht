@@ -19,6 +19,8 @@ pub struct Client {
     min_buffer_size: usize,
     max_buffer_size: usize,
     version: Version,
+
+    nodelay: bool,
 }
 impl Client {
     pub fn new() -> Self {
@@ -27,6 +29,7 @@ impl Client {
             min_buffer_size: defaults::MIN_BUFFER_SIZE,
             max_buffer_size: defaults::MAX_BUFFER_SIZE,
             version: Version::default(),
+            nodelay: true,
         }
     }
     pub fn max_response_header_count(&mut self, count: usize) -> &mut Self {
@@ -47,10 +50,15 @@ impl Client {
         self.version = version;
         self
     }
+    pub fn nodelay(&mut self, b: bool) -> &mut Self {
+        self.nodelay = b;
+        self
+    }
     pub fn connect(&self, server_addr: SocketAddr) -> Connect {
         Connect {
             client: self.clone(),
             future: TcpStream::connect(server_addr),
+            nodelay: self.nodelay,
         }
     }
 }
@@ -92,15 +100,19 @@ impl<T> AsMut<connection::Connection<T>> for Connection<T> {
 pub struct Connect {
     client: Client,
     future: net::futures::Connect,
+    nodelay: bool,
 }
 impl Future for Connect {
     type Item = Connection<TcpStream>;
     type Error = Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(track!(self.future.poll().map_err(Error::from))?.map(
-            |socket| {
+        Ok(
+            track!(self.future.poll().map_err(Error::from))?.map(|socket| {
+                unsafe {
+                    let _ = socket.with_inner(|socket| socket.set_nodelay(self.nodelay));
+                }
                 Connection::new(socket, &self.client)
-            },
-        ))
+            }),
+        )
     }
 }
