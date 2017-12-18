@@ -1,7 +1,7 @@
 extern crate fibers;
 extern crate futures;
-extern crate httparse;
 extern crate handy_async;
+extern crate httparse;
 #[macro_use]
 extern crate trackable;
 

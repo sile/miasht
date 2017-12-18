@@ -1,4 +1,4 @@
-use {Version, Method};
+use {Method, Version};
 use header::Headers;
 use status::RawStatus;
 

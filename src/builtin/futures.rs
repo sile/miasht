@@ -1,11 +1,11 @@
 use std::io::{Read, Write};
 use std::time;
 use fibers::time::timer;
-use futures::{Future, Poll, Async};
-use handy_async::io::{ReadFrom, AsyncWrite};
+use futures::{Async, Future, Poll};
+use handy_async::io::{AsyncWrite, ReadFrom};
 use handy_async::io::futures::ReadPattern;
 use handy_async::io::futures::WriteAll;
-use handy_async::pattern::read::{Utf8, All};
+use handy_async::pattern::read::{All, Utf8};
 use trackable::error::ErrorKindExt;
 
 use {Error, Status};

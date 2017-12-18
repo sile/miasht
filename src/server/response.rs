@@ -1,7 +1,7 @@
 use std::io::{self, Write};
-use futures::{Future, Poll, Async};
+use futures::{Async, Future, Poll};
 
-use {Error, TransportStream, Status};
+use {Error, Status, TransportStream};
 use status::RawStatus;
 use header::{Header, HeadersMut};
 use super::Connection;
@@ -14,8 +14,7 @@ where
     let _ = write!(
         connection.inner.buffer,
         "{} {}\r\n",
-        connection.version,
-        status
+        connection.version, status
     );
     ResponseBuilder(connection)
 }

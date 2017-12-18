@@ -1,5 +1,5 @@
 use std::io::{self, Write};
-use futures::{Future, Poll, Async};
+use futures::{Async, Future, Poll};
 
 use {Error, Method, Status};
 use header::{Header, HeadersMut};
@@ -14,9 +14,7 @@ where
     let _ = write!(
         connection.inner.buffer,
         "{} {} {}\r\n",
-        method,
-        path,
-        connection.version
+        method, path, connection.version
     );
     RequestBuilder(connection)
 }

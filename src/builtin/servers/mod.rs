@@ -1,9 +1,9 @@
 use fibers::net::TcpStream;
-use futures::{self, Future, Finished};
+use futures::{self, Finished, Future};
 
 use {Error, Server, TransportStream};
 use defaults;
-use server::{Connection, HandleSocket, HandleConnection};
+use server::{Connection, HandleConnection, HandleSocket};
 
 pub type RawConnection = Connection<TcpStream>;
 
@@ -108,9 +108,7 @@ impl<A, T, F> HandleConnection for ConnectionHandleCallback<A, T, F>
 where
     A: Send + 'static,
     T: TransportStream + 'static,
-    F: Future<Item = (), Error = ()>
-        + Send
-        + 'static,
+    F: Future<Item = (), Error = ()> + Send + 'static,
 {
     type Transport = T;
     type Future = F;

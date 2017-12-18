@@ -1,8 +1,8 @@
-use std::io::{self, Read, BufRead};
+use std::io::{self, BufRead, Read};
 use httparse;
-use futures::{Future, Poll, Async};
+use futures::{Async, Future, Poll};
 
-use {Version, Error, Metadata, Method};
+use {Error, Metadata, Method, Version};
 use status::RawStatus;
 use header::Headers;
 use connection::TransportStream;

@@ -1,9 +1,11 @@
-use futures::{Future, BoxFuture};
+use futures::Future;
 
 use {Status, TransportStream};
 use server::Request;
 
 pub type Callback<A, T> = fn(A, Request<T>) -> Result<BoxFuture<(), ()>, Request<T>>;
+
+pub type BoxFuture<T, E> = Box<Future<Item = T, Error = E> + Send + 'static>;
 
 pub struct RouteBuilder<T> {
     handlers: Vec<Box<HandleRequest<T> + Sync>>,
@@ -13,7 +15,9 @@ where
     T: TransportStream + 'static,
 {
     pub fn new() -> Self {
-        RouteBuilder { handlers: Vec::new() }
+        RouteBuilder {
+            handlers: Vec::new(),
+        }
     }
     pub fn add_handler<H>(&mut self, handler: H)
     where
@@ -28,7 +32,9 @@ where
         self.add_handler(RequestHandleCallback(argument, callback))
     }
     pub fn finish(self) -> Router<T> {
-        Router { handlers: Arc::new(self.handlers) }
+        Router {
+            handlers: Arc::new(self.handlers),
+        }
     }
 }
 
@@ -39,7 +45,9 @@ pub struct Router<T> {
 unsafe impl<T> Send for Router<T> {}
 impl<T> Clone for Router<T> {
     fn clone(&self) -> Self {
-        Router { handlers: self.handlers.clone() }
+        Router {
+            handlers: self.handlers.clone(),
+        }
     }
 }
 impl<T> Router<T>
@@ -53,12 +61,12 @@ where
                 Err(req) => request = req,
             }
         }
-        request
+        let future = request
             .finish()
             .build_response(Status::NotFound)
             .finish()
-            .then(|_| Ok(()))
-            .boxed()
+            .then(|_| Ok(()));
+        Box::new(future)
     }
 }
 

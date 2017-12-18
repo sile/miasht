@@ -3,14 +3,14 @@ use fibers::Spawn;
 use fibers::sync::{mpsc, oneshot};
 use fibers::net::{TcpListener, TcpStream};
 use fibers::net::streams::Incoming;
-use futures::{self, Future, Stream, Poll, Async};
+use futures::{self, Async, Future, Poll, Stream};
 use futures::future::Either;
 use trackable::error::ErrorKindExt;
 
-pub use self::request::{Request, ReadRequest};
+pub use self::request::{ReadRequest, Request};
 pub use self::response::{Response, ResponseBuilder};
 
-use {Result, Error, TransportStream, Version, Status};
+use {Error, Result, Status, TransportStream, Version};
 use status::RawStatus;
 use connection;
 
@@ -111,19 +111,18 @@ impl ServerHandle {
             let spawner = spawner.clone();
             TcpListener::bind(bind_addr)
                 .map_err(|e| track!(Error::from(e)))
-                .and_then(move |mut listener| if let Err(e) = server.before_listen(
-                    &mut listener,
-                )
-                {
-                    Either::A(futures::failed(e))
-                } else {
-                    let server_loop = ServerLoop {
-                        server: server,
-                        spawner: spawner,
-                        incoming: listener.incoming(),
-                        command_rx: command_rx,
-                    };
-                    Either::B(server_loop)
+                .and_then(move |mut listener| {
+                    if let Err(e) = server.before_listen(&mut listener) {
+                        Either::A(futures::failed(e))
+                    } else {
+                        let server_loop = ServerLoop {
+                            server: server,
+                            spawner: spawner,
+                            incoming: listener.incoming(),
+                            command_rx: command_rx,
+                        };
+                        Either::B(server_loop)
+                    }
                 })
         };
         let monitor = spawner.spawn_monitor(future);

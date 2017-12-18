@@ -1,4 +1,4 @@
-use std::io::{self, Read, BufRead, Write};
+use std::io::{self, BufRead, Read, Write};
 use httparse;
 use fibers::net::TcpStream;
 
@@ -60,7 +60,7 @@ impl<T: TransportStream> Connection<T> {
     }
     pub unsafe fn buffer_and_headers(&mut self) -> (&'static [u8], &'static mut [UnsafeHeader]) {
         let bytes = self.buffer.as_slice();
-        let mut headers = &mut self.headers[..];
+        let headers = &mut self.headers[..];
         (
             &*(bytes as *const _) as &'static _,
             &mut *(headers as *mut _) as &'static mut _,

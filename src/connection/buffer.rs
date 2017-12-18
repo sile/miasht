@@ -3,7 +3,10 @@ use std::io::{self, BufRead, Read, Write};
 
 #[derive(Debug)]
 enum Phase {
-    Read { head: usize, tail: usize },
+    Read {
+        head: usize,
+        tail: usize,
+    },
     Write {
         read_tail: usize,
         head: usize,

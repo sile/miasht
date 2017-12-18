@@ -3,7 +3,7 @@ use fibers::net::{self, TcpStream};
 use futures::{Future, Poll};
 
 pub use self::request::{Request, RequestBuilder};
-pub use self::response::{Response, ReadResponse};
+pub use self::response::{ReadResponse, Response};
 
 use {Error, Method, Version};
 use defaults;
