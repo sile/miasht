@@ -3,7 +3,6 @@ use std::fmt;
 use std::str;
 use std::error;
 use std::slice;
-use std::ascii::AsciiExt;
 use httparse;
 
 use connection::Buffer;

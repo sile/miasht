@@ -3,10 +3,10 @@ extern crate fibers;
 extern crate futures;
 extern crate miasht;
 
-use fibers::{Executor, ThreadPoolExecutor, Spawn};
-use futures::{Future, BoxFuture};
+use fibers::{Executor, Spawn, ThreadPoolExecutor};
+use futures::{BoxFuture, Future};
 use miasht::{Server, Status};
-use miasht::builtin::servers::{SimpleHttpServer, RawConnection};
+use miasht::builtin::servers::{RawConnection, SimpleHttpServer};
 use miasht::builtin::headers::ContentLength;
 use miasht::builtin::FutureExt;
 

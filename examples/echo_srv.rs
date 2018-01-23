@@ -3,12 +3,12 @@ extern crate fibers;
 extern crate futures;
 extern crate miasht;
 
-use fibers::{Executor, ThreadPoolExecutor, Spawn};
-use futures::{Future, BoxFuture, IntoFuture};
+use fibers::{Executor, Spawn, ThreadPoolExecutor};
+use futures::{BoxFuture, Future, IntoFuture};
 use miasht::{Server, Status};
-use miasht::builtin::servers::{SimpleHttpServer, RawConnection};
+use miasht::builtin::servers::{RawConnection, SimpleHttpServer};
 use miasht::builtin::headers::ContentLength;
-use miasht::builtin::{IoExt, FutureExt};
+use miasht::builtin::{FutureExt, IoExt};
 
 fn main() {
     let mut executor = ThreadPoolExecutor::new().unwrap();
@@ -24,9 +24,10 @@ fn echo(_: (), connection: RawConnection) -> BoxFuture<(), ()> {
     connection
         .read_request()
         .and_then(|request| {
-            request.into_body_reader().into_future().and_then(|r| {
-                r.read_all_bytes()
-            })
+            request
+                .into_body_reader()
+                .into_future()
+                .and_then(|r| r.read_all_bytes())
         })
         .and_then(|(request, buf)| {
             let connection = request.into_inner().finish();

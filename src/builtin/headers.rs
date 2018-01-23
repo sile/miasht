@@ -1,7 +1,6 @@
 use std::fmt;
 use std::u64;
 use std::io::{self, Write};
-use std::ascii::AsciiExt;
 
 use {Error, Status};
 use header::Header;
