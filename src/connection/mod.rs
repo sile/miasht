@@ -1,14 +1,13 @@
 use std::io::{self, BufRead, Read, Write};
 use httparse;
-use fibers::net::TcpStream;
 
 use unsafe_types::UnsafeHeader;
 pub use self::buffer::Buffer;
 
 mod buffer;
 
+// TODO: remove
 pub trait TransportStream: Read + Write {}
-impl TransportStream for TcpStream {}
 
 #[derive(Debug)]
 pub struct Connection<T> {

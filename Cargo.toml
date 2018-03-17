@@ -10,10 +10,8 @@ keywords = ["http", "asynchronous"]
 license = "MIT"
 
 [dependencies]
-fibers = "0.1"
 futures = "0.1"
 httparse = "1"
-handy_async = "0.2"
 trackable = "0.2"
 
 [dev-dependencies]

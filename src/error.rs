@@ -1,7 +1,7 @@
+use std;
 use std::io;
 use std::sync::mpsc::RecvError;
 use httparse;
-use handy_async::error::AsyncError;
 use trackable::error::TrackableError;
 use trackable::error::{ErrorKind, ErrorKindExt};
 
@@ -16,17 +16,12 @@ impl From<io::Error> for Error {
         Status::InternalServerError.cause(f).into()
     }
 }
-impl<T> From<AsyncError<T, io::Error>> for Error {
-    fn from(f: AsyncError<T, io::Error>) -> Self {
-        Status::InternalServerError.cause(f.into_error()).into()
-    }
-}
 impl From<httparse::Error> for Error {
     fn from(f: httparse::Error) -> Self {
         Status::BadRequest.cause(f).into()
     }
 }
-impl<E: ::std::error::Error + Send + Sync + 'static> From<header::ParseValueError<E>> for Error {
+impl<E: std::error::Error + Send + Sync + 'static> From<header::ParseValueError<E>> for Error {
     fn from(f: header::ParseValueError<E>) -> Self {
         Status::BadRequest.cause(f).into()
     }
