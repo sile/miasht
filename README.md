@@ -5,6 +5,12 @@ miasht
 [![Build Status](https://travis-ci.org/sile/miasht.svg?branch=master)](https://travis-ci.org/sile/miasht)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+**NOTICE** This library is obsolete. Please use [httpcodec] instead.
+
+[httpcodec]: https://github.com/sile/httpcodec
+
+---
+
 **Mi**nimum **as**ynchronous **HT**TP server/client library for Rust.
 
 [Documentation](https://docs.rs/miasht)
